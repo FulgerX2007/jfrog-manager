@@ -184,13 +184,13 @@
 
 ### Task 11: Verify acceptance criteria
 
-- [ ] Verify repo browsing works (dropdown populates, artifact list loads)
-- [ ] Verify artifact upload works (form submits, list refreshes)
-- [ ] Verify artifact delete works (confirmation dialog, row removed)
-- [ ] Verify Xray panel works (shows vulnerabilities or graceful "not available")
-- [ ] Verify error handling (invalid API key shows clear error, unreachable server shows alert)
-- [ ] Run full test suite: `go test ./...`
-- [ ] Verify test coverage: `go test -coverprofile=coverage.out ./...`
+- [x] Verify repo browsing works (dropdown populates, artifact list loads)
+- [x] Verify artifact upload works (form submits, list refreshes)
+- [x] Verify artifact delete works (confirmation dialog, row removed)
+- [x] Verify Xray panel works (shows vulnerabilities or graceful "not available")
+- [x] Verify error handling (invalid API key shows clear error, unreachable server shows alert)
+- [x] Run full test suite: `go test ./...`
+- [x] Verify test coverage: `go test -coverprofile=coverage.out ./...`
 
 ### Task 12: [Final] Documentation
 
