@@ -131,15 +131,15 @@
 - Create: `templates/partials/xray_panel.html`
 - Create: `templates/partials/error.html`
 
-- [ ] Create `templates/layout.html` — HTML5 base with Bootstrap 5 CSS (CDN), htmx (CDN), navbar with app title
-- [ ] Create `templates/index.html` — extends layout; repo dropdown (`hx-get="/repos"` on load), artifact table container, upload button
-- [ ] Create `templates/partials/artifact_list.html` — table rows with Name, Path, Size, Modified columns; delete button (`hx-delete`, `hx-confirm`); Xray button (`hx-get="/xray"`)
-- [ ] Create `templates/partials/upload_form.html` — inline form with repo dropdown, path input, file input; `hx-post="/artifacts/upload"` with `hx-encoding="multipart/form-data"`
-- [ ] Create `templates/partials/xray_panel.html` — expandable row showing severity badges (Critical/High/Medium/Low counts), CVE list with descriptions
-- [ ] Create `templates/partials/error.html` — Bootstrap `alert-danger` with error message
-- [ ] Note: use `template.ParseGlob` with multiple patterns or `template.ParseFS` to load nested `partials/` directory — `gin.LoadHTMLGlob` does not recurse by default
-- [ ] Write `TestTemplatesParse` — verify all templates parse without errors using `template.ParseGlob`
-- [ ] Run tests — must pass before next task
+- [x] Create `templates/layout.html` — HTML5 base with Bootstrap 5 CSS (CDN), htmx (CDN), navbar with app title
+- [x] Create `templates/index.html` — extends layout; repo dropdown (`hx-get="/repos"` on load), artifact table container, upload button
+- [x] Create `templates/partials/artifact_list.html` — table rows with Name, Path, Size, Modified columns; delete button (`hx-delete`, `hx-confirm`); Xray button (`hx-get="/xray"`)
+- [x] Create `templates/partials/upload_form.html` — inline form with repo dropdown, path input, file input; `hx-post="/artifacts/upload"` with `hx-encoding="multipart/form-data"`
+- [x] Create `templates/partials/xray_panel.html` — expandable row showing severity badges (Critical/High/Medium/Low counts), CVE list with descriptions
+- [x] Create `templates/partials/error.html` — Bootstrap `alert-danger` with error message
+- [x] Note: use `template.ParseGlob` with multiple patterns or `template.ParseFS` to load nested `partials/` directory — `gin.LoadHTMLGlob` does not recurse by default
+- [x] Write `TestTemplatesParse` — verify all templates parse without errors using `template.ParseGlob`
+- [x] Run tests — must pass before next task
 
 ### Task 8: Gin handlers — artifacts
 

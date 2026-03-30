@@ -1,0 +1,29 @@
+{{define "content"}}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label for="repo-select" class="form-label">Repository</label>
+        <select id="repo-select" class="form-select"
+                hx-get="/repos" hx-trigger="load" hx-target="#repo-select"
+                hx-on::after-settle="this.dispatchEvent(new Event('change'))"
+                hx-get="/artifacts" hx-trigger="change" hx-target="#artifact-list"
+                hx-include="this" name="repo">
+            <option value="">Loading repositories...</option>
+        </select>
+    </div>
+    <div class="col-md-6 d-flex align-items-end">
+        <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#upload-section">
+            Upload Artifact
+        </button>
+    </div>
+</div>
+
+<div id="upload-section" class="collapse mb-3">
+    {{template "upload_form" .}}
+</div>
+
+<div id="error-container"></div>
+
+<div id="artifact-list">
+    <p class="text-muted">Select a repository to view artifacts.</p>
+</div>
+{{end}}

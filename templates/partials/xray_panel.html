@@ -1,0 +1,49 @@
+{{define "xray_panel"}}
+{{if not .Available}}
+<td colspan="5">
+    <div class="alert alert-secondary mb-0 py-2">
+        Xray not configured or artifact not indexed.
+    </div>
+</td>
+{{else}}
+<td colspan="5">
+    <div class="card card-body mb-0 py-2">
+        {{range .Artifacts}}
+        <div class="mb-2">
+            <strong>Vulnerability Summary:</strong>
+            {{if .Issues}}
+            <span class="badge severity-critical">Critical: {{countBySeverity .Issues "Critical"}}</span>
+            <span class="badge severity-high">High: {{countBySeverity .Issues "High"}}</span>
+            <span class="badge severity-medium">Medium: {{countBySeverity .Issues "Medium"}}</span>
+            <span class="badge severity-low">Low: {{countBySeverity .Issues "Low"}}</span>
+            {{else}}
+            <span class="text-success">No vulnerabilities found.</span>
+            {{end}}
+        </div>
+        {{if .Issues}}
+        <table class="table table-sm table-bordered mb-0">
+            <thead>
+                <tr>
+                    <th>Severity</th>
+                    <th>CVE</th>
+                    <th>Summary</th>
+                    <th>Components</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Issues}}
+                <tr>
+                    <td><span class="badge severity-{{toLower .Severity}}">{{.Severity}}</span></td>
+                    <td>{{range .CVEs}}{{.ID}} {{end}}</td>
+                    <td>{{.Summary}}</td>
+                    <td>{{range .Components}}{{.ID}} {{end}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{end}}
+        {{end}}
+    </div>
+</td>
+{{end}}
+{{end}}
