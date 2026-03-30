@@ -65,12 +65,12 @@
 - Create: `internal/jfrog/service.go`
 - Create: `internal/jfrog/client_test.go`
 
-- [ ] Create `internal/jfrog/service.go` — define `Service` interface with methods: `ListRepos()`, `ListArtifacts(repo)`, `UploadArtifact(repo, path, reader)`, `DeleteArtifact(repo, path)`, `GetXraySummary(repo, path)`. Handlers will depend on this interface for testability
-- [ ] Create `internal/jfrog/client.go` — `Client` struct with `http.Client`, base URL, API key; `NewClient(config)` constructor; `Client` satisfies `Service` interface
-- [ ] Add `X-JFrog-Art-Api` header injection via custom `Do()` method that wraps all HTTP calls
-- [ ] Write tests using `httptest.NewServer` to verify auth header, base URL construction, timeout
-- [ ] Write tests for error scenarios (connection refused, non-2xx responses)
-- [ ] Run tests — must pass before next task
+- [x] Create `internal/jfrog/service.go` — define `Service` interface with methods: `ListRepos()`, `ListArtifacts(repo)`, `UploadArtifact(repo, path, reader)`, `DeleteArtifact(repo, path)`, `GetXraySummary(repo, path)`. Handlers will depend on this interface for testability
+- [x] Create `internal/jfrog/client.go` — `Client` struct with `http.Client`, base URL, API key; `NewClient(config)` constructor; `Client` satisfies `Service` interface
+- [x] Add `X-JFrog-Art-Api` header injection via custom `Do()` method that wraps all HTTP calls
+- [x] Write tests using `httptest.NewServer` to verify auth header, base URL construction, timeout
+- [x] Write tests for error scenarios (connection refused, non-2xx responses)
+- [x] Run tests — must pass before next task
 
 ### Task 3: Models and repository listing
 

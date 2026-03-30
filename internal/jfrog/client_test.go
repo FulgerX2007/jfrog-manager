@@ -1,0 +1,308 @@
+package jfrog
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"jfrog_manager/internal/config"
+)
+
+func newTestServer(handler http.HandlerFunc) *httptest.Server {
+	return httptest.NewServer(handler)
+}
+
+func newTestClient(serverURL string) Client {
+	cfg := config.Config{
+		JFrogURL:    serverURL,
+		JFrogAPIKey: "test-api-key",
+		Port:        "8080",
+		Timeout:     5,
+	}
+	return NewClient(cfg)
+}
+
+func TestNewClient_SetsFields(t *testing.T) {
+	cfg := config.Config{
+		JFrogURL:    "https://artifactory.example.com/",
+		JFrogAPIKey: "my-key",
+		Port:        "9090",
+		Timeout:     10,
+	}
+	client := NewClient(cfg)
+
+	if client.baseURL != "https://artifactory.example.com" {
+		t.Errorf("expected trailing slash trimmed, got %s", client.baseURL)
+	}
+	if client.apiKey != "my-key" {
+		t.Errorf("expected apiKey 'my-key', got %s", client.apiKey)
+	}
+}
+
+func TestDo_InjectsAuthHeader(t *testing.T) {
+	var receivedHeader string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeader = r.Header.Get("X-JFrog-Art-Api")
+		w.WriteHeader(http.StatusOK)
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	req, _ := http.NewRequest(http.MethodGet, server.URL+"/test", nil)
+	_, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedHeader != "test-api-key" {
+		t.Errorf("expected auth header 'test-api-key', got '%s'", receivedHeader)
+	}
+}
+
+func TestListRepos_CorrectURLAndAuth(t *testing.T) {
+	var requestPath string
+	var authHeader string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		requestPath = r.URL.Path
+		authHeader = r.Header.Get("X-JFrog-Art-Api")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{"key":"repo1"}]`))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	body, err := client.ListRepos()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if requestPath != "/artifactory/api/repositories" {
+		t.Errorf("expected path '/artifactory/api/repositories', got '%s'", requestPath)
+	}
+	if authHeader != "test-api-key" {
+		t.Errorf("expected auth header 'test-api-key', got '%s'", authHeader)
+	}
+	if string(body) != `[{"key":"repo1"}]` {
+		t.Errorf("unexpected body: %s", string(body))
+	}
+}
+
+func TestListArtifacts_CorrectURL(t *testing.T) {
+	var requestURL string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		requestURL = r.URL.String()
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"files":[]}`))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	_, err := client.ListArtifacts("my-repo")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := "/artifactory/api/storage/my-repo/?list&deep=1"
+	if requestURL != expected {
+		t.Errorf("expected URL '%s', got '%s'", expected, requestURL)
+	}
+}
+
+func TestUploadArtifact_SendsBodyAndCorrectPath(t *testing.T) {
+	var requestPath string
+	var requestMethod string
+	var receivedBody string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		requestPath = r.URL.Path
+		requestMethod = r.Method
+		b, _ := io.ReadAll(r.Body)
+		receivedBody = string(b)
+		w.WriteHeader(http.StatusCreated)
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	err := client.UploadArtifact("my-repo", "path/to/file.jar", strings.NewReader("file-content"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if requestMethod != http.MethodPut {
+		t.Errorf("expected PUT, got %s", requestMethod)
+	}
+	if requestPath != "/artifactory/my-repo/path/to/file.jar" {
+		t.Errorf("expected path '/artifactory/my-repo/path/to/file.jar', got '%s'", requestPath)
+	}
+	if receivedBody != "file-content" {
+		t.Errorf("expected body 'file-content', got '%s'", receivedBody)
+	}
+}
+
+func TestDeleteArtifact_CorrectMethodAndPath(t *testing.T) {
+	var requestPath string
+	var requestMethod string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		requestPath = r.URL.Path
+		requestMethod = r.Method
+		w.WriteHeader(http.StatusNoContent)
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	err := client.DeleteArtifact("my-repo", "path/to/file.jar")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if requestMethod != http.MethodDelete {
+		t.Errorf("expected DELETE, got %s", requestMethod)
+	}
+	if requestPath != "/artifactory/my-repo/path/to/file.jar" {
+		t.Errorf("expected path '/artifactory/my-repo/path/to/file.jar', got '%s'", requestPath)
+	}
+}
+
+func TestGetXraySummary_CorrectURLAndBody(t *testing.T) {
+	var requestPath string
+	var requestMethod string
+	var receivedBody string
+	var contentType string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		requestPath = r.URL.Path
+		requestMethod = r.Method
+		contentType = r.Header.Get("Content-Type")
+		b, _ := io.ReadAll(r.Body)
+		receivedBody = string(b)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"artifacts":[]}`))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	body, err := client.GetXraySummary("my-repo", "path/to/file.jar")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if requestMethod != http.MethodPost {
+		t.Errorf("expected POST, got %s", requestMethod)
+	}
+	if requestPath != "/xray/api/v1/summary/artifact" {
+		t.Errorf("expected path '/xray/api/v1/summary/artifact', got '%s'", requestPath)
+	}
+	if contentType != "application/json" {
+		t.Errorf("expected Content-Type 'application/json', got '%s'", contentType)
+	}
+	expectedBody := `{"paths":["default/my-repo/path/to/file.jar"]}`
+	if receivedBody != expectedBody {
+		t.Errorf("expected body '%s', got '%s'", expectedBody, receivedBody)
+	}
+	if string(body) != `{"artifacts":[]}` {
+		t.Errorf("unexpected response body: %s", string(body))
+	}
+}
+
+// Error scenario tests
+
+func TestListRepos_Non2xxReturnsError(t *testing.T) {
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"errors":[{"message":"Unauthorized"}]}`))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	_, err := client.ListRepos()
+	if err == nil {
+		t.Fatal("expected error for 401 response")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("expected error to contain '401', got: %v", err)
+	}
+}
+
+func TestListRepos_ConnectionRefused(t *testing.T) {
+	cfg := config.Config{
+		JFrogURL:    "http://localhost:1", // unlikely to have anything listening
+		JFrogAPIKey: "key",
+		Timeout:     1,
+	}
+	client := NewClient(cfg)
+	_, err := client.ListRepos()
+	if err == nil {
+		t.Fatal("expected error for connection refused")
+	}
+}
+
+func TestUploadArtifact_Non2xxReturnsError(t *testing.T) {
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("access denied"))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	err := client.UploadArtifact("repo", "path", strings.NewReader("data"))
+	if err == nil {
+		t.Fatal("expected error for 403 response")
+	}
+	if !strings.Contains(err.Error(), "403") {
+		t.Errorf("expected error to contain '403', got: %v", err)
+	}
+}
+
+func TestDeleteArtifact_404ReturnsError(t *testing.T) {
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("not found"))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	err := client.DeleteArtifact("repo", "missing/file.jar")
+	if err == nil {
+		t.Fatal("expected error for 404 response")
+	}
+	if !strings.Contains(err.Error(), "404") {
+		t.Errorf("expected error to contain '404', got: %v", err)
+	}
+}
+
+func TestDeleteArtifact_403ReturnsError(t *testing.T) {
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("forbidden"))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	err := client.DeleteArtifact("repo", "file.jar")
+	if err == nil {
+		t.Fatal("expected error for 403 response")
+	}
+	if !strings.Contains(err.Error(), "403") {
+		t.Errorf("expected error to contain '403', got: %v", err)
+	}
+}
+
+func TestListRepos_ServerError500(t *testing.T) {
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("internal error"))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	_, err := client.ListRepos()
+	if err == nil {
+		t.Fatal("expected error for 500 response")
+	}
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("expected error to contain '500', got: %v", err)
+	}
+}
+
+// Verify Client satisfies Service interface at compile time
+var _ Service = Client{}
