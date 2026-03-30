@@ -79,11 +79,11 @@
 - Create: `internal/jfrog/artifacts.go`
 - Create: `internal/jfrog/artifacts_test.go`
 
-- [ ] Create `internal/models/models.go` — `Repository` struct (Key, Type, PackageType, Description), `Artifact` struct (Name, Path, Size, LastModified, Repo)
-- [ ] Create `internal/jfrog/artifacts.go` — `ListRepos()` method calling `GET /artifactory/api/repositories`, returning `[]models.Repository`
-- [ ] Write tests for `ListRepos()` with mock server returning sample JSON
-- [ ] Write tests for `ListRepos()` error cases (401, 500, malformed JSON)
-- [ ] Run tests — must pass before next task
+- [x] Create `internal/models/models.go` — `Repository` struct (Key, Type, PackageType, Description), `Artifact` struct (Name, Path, Size, LastModified, Repo)
+- [x] Create `internal/jfrog/artifacts.go` — `ListRepos()` method calling `GET /artifactory/api/repositories`, returning `[]models.Repository`
+- [x] Write tests for `ListRepos()` with mock server returning sample JSON
+- [x] Write tests for `ListRepos()` error cases (401, 500, malformed JSON)
+- [x] Run tests — must pass before next task
 
 ### Task 4: List artifacts for a repository
 

@@ -34,15 +34,6 @@ func (c Client) Do(req *http.Request) (*http.Response, error) {
 	return c.httpClient.Do(req)
 }
 
-func (c Client) ListRepos() ([]byte, error) {
-	url := c.baseURL + "/artifactory/api/repositories"
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	return c.doAndReadBody(req)
-}
-
 func (c Client) ListArtifacts(repo string) ([]byte, error) {
 	url := c.baseURL + "/artifactory/api/storage/" + repo + "/?list&deep=1"
 	req, err := http.NewRequest(http.MethodGet, url, nil)
