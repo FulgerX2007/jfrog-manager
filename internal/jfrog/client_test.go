@@ -99,7 +99,7 @@ func TestListArtifacts_CorrectURL(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL)
-	_, err := client.ListArtifacts("my-repo")
+	artifacts, err := client.ListArtifacts("my-repo")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -107,6 +107,9 @@ func TestListArtifacts_CorrectURL(t *testing.T) {
 	expected := "/artifactory/api/storage/my-repo/?list&deep=1"
 	if requestURL != expected {
 		t.Errorf("expected URL '%s', got '%s'", expected, requestURL)
+	}
+	if len(artifacts) != 0 {
+		t.Errorf("expected empty list, got %d artifacts", len(artifacts))
 	}
 }
 

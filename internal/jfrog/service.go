@@ -10,7 +10,7 @@ import (
 // Handlers depend on this interface for testability.
 type Service interface {
 	ListRepos() ([]models.Repository, error)
-	ListArtifacts(repo string) ([]byte, error)
+	ListArtifacts(repo string) ([]models.Artifact, error)
 	UploadArtifact(repo, path string, reader io.Reader) error
 	DeleteArtifact(repo, path string) error
 	GetXraySummary(repo, path string) ([]byte, error)

@@ -91,10 +91,10 @@
 - Modify: `internal/jfrog/artifacts.go`
 - Modify: `internal/jfrog/artifacts_test.go`
 
-- [ ] Add `ListArtifacts(repo string)` method calling `GET /artifactory/api/storage/{repo}/?list&deep=1`
-- [ ] Parse response into `[]models.Artifact` with name, path, size, last modified
-- [ ] Write tests for `ListArtifacts()` with mock server (success + empty repo + error cases)
-- [ ] Run tests — must pass before next task
+- [x] Add `ListArtifacts(repo string)` method calling `GET /artifactory/api/storage/{repo}/?list&deep=1`
+- [x] Parse response into `[]models.Artifact` with name, path, size, last modified
+- [x] Write tests for `ListArtifacts()` with mock server (success + empty repo + error cases)
+- [x] Run tests — must pass before next task
 
 ### Task 5: Upload and delete artifacts
 
