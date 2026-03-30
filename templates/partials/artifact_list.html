@@ -10,9 +10,9 @@
             <th>Actions</th>
         </tr>
     </thead>
-    <tbody>
         {{range .Artifacts}}
-        <tr id="artifact-row-{{cssID .Path}}">
+        <tbody id="artifact-group-{{cssID .Path}}">
+        <tr>
             <td>{{.Name}}</td>
             <td>{{.Path}}</td>
             <td>{{.Size}}</td>
@@ -27,15 +27,15 @@
                 <button class="btn btn-sm btn-danger"
                         hx-delete="/artifacts?repo={{urlEncode .Repo}}&path={{urlEncode .Path}}"
                         hx-confirm="Delete {{.Name}}?"
-                        hx-target="#artifact-row-{{cssID .Path}}"
+                        hx-target="#artifact-group-{{cssID .Path}}"
                         hx-swap="outerHTML">
                     Delete
                 </button>
             </td>
         </tr>
         <tr id="xray-panel-{{cssID .Path}}" class="xray-panel"></tr>
+        </tbody>
         {{end}}
-    </tbody>
 </table>
 {{else}}
 <p class="text-muted">No artifacts found in this repository.</p>

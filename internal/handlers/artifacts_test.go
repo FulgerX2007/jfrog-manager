@@ -174,6 +174,18 @@ func TestListArtifacts_MissingRepo(t *testing.T) {
 	}
 }
 
+func TestListArtifacts_PathTraversal(t *testing.T) {
+	r := setupTestRouter(&mockService{})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/artifacts?repo=../evil", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Invalid repository") {
+		t.Error("expected path traversal rejection")
+	}
+}
+
 func TestListArtifacts_ClientError(t *testing.T) {
 	mock := &mockService{
 		artsErr: errors.New("request failed with status 500"),

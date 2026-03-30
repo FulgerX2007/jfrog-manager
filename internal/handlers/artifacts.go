@@ -58,6 +58,10 @@ func (h Handler) ListArtifacts(c *gin.Context) {
 		h.renderError(c, "Repository parameter is required")
 		return
 	}
+	if strings.Contains(repo, "..") {
+		h.renderError(c, "Invalid repository")
+		return
+	}
 
 	artifacts, err := h.service.ListArtifacts(repo)
 	if err != nil {
