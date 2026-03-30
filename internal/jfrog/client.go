@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -49,8 +50,8 @@ func (c Client) Do(req *http.Request) (*http.Response, error) {
 }
 
 func (c Client) ListArtifacts(repo string) ([]models.Artifact, error) {
-	url := c.baseURL + "/artifactory/api/storage/" + repo + "/?list&deep=1"
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	reqURL := c.baseURL + "/artifactory/api/storage/" + url.PathEscape(repo) + "/?list&deep=1"
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -87,8 +88,8 @@ func (c Client) ListArtifacts(repo string) ([]models.Artifact, error) {
 }
 
 func (c Client) UploadArtifact(repo, path string, reader io.Reader) error {
-	url := c.baseURL + "/artifactory/" + repo + "/" + path
-	req, err := http.NewRequest(http.MethodPut, url, reader)
+	reqURL := c.baseURL + "/artifactory/" + url.PathEscape(repo) + "/" + url.PathEscape(path)
+	req, err := http.NewRequest(http.MethodPut, reqURL, reader)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
@@ -105,8 +106,8 @@ func (c Client) UploadArtifact(repo, path string, reader io.Reader) error {
 }
 
 func (c Client) DeleteArtifact(repo, path string) error {
-	url := c.baseURL + "/artifactory/" + repo + "/" + path
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	reqURL := c.baseURL + "/artifactory/" + url.PathEscape(repo) + "/" + url.PathEscape(path)
+	req, err := http.NewRequest(http.MethodDelete, reqURL, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}

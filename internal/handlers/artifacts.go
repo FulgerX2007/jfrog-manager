@@ -39,7 +39,7 @@ func (h Handler) ListRepos(c *gin.Context) {
 	repos, err := h.service.ListRepos()
 	if err != nil {
 		slog.Error("listing repos", "error", err)
-		h.renderError(c, "Failed to load repositories: "+err.Error())
+		h.renderError(c, "Failed to load repositories")
 		return
 	}
 
@@ -61,7 +61,7 @@ func (h Handler) ListArtifacts(c *gin.Context) {
 	artifacts, err := h.service.ListArtifacts(repo)
 	if err != nil {
 		slog.Error("listing artifacts", "error", err)
-		h.renderError(c, "Failed to load artifacts: "+err.Error())
+		h.renderError(c, "Failed to load artifacts")
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h Handler) UploadArtifact(c *gin.Context) {
 
 	if err := h.service.UploadArtifact(repo, path, file); err != nil {
 		slog.Error("uploading artifact", "error", err)
-		h.renderError(c, "Upload failed: "+err.Error())
+		h.renderError(c, "Upload failed")
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h Handler) UploadArtifact(c *gin.Context) {
 	artifacts, err := h.service.ListArtifacts(repo)
 	if err != nil {
 		slog.Error("listing artifacts after upload", "error", err)
-		h.renderError(c, "Upload succeeded but failed to refresh list: "+err.Error())
+		h.renderError(c, "Upload succeeded but failed to refresh list")
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h Handler) DeleteArtifact(c *gin.Context) {
 
 	if err := h.service.DeleteArtifact(repo, path); err != nil {
 		slog.Error("deleting artifact", "error", err)
-		h.renderError(c, "Delete failed: "+err.Error())
+		h.renderError(c, "Delete failed")
 		return
 	}
 
@@ -139,9 +139,13 @@ func (h Handler) DeleteArtifact(c *gin.Context) {
 }
 
 // renderError renders the error template fragment.
+// It uses HX-Retarget to ensure errors display in the error container,
+// not inside whatever element triggered the request.
 func (h Handler) renderError(c *gin.Context, message string) {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.Header("HX-Retarget", "#error-container")
+	c.Header("HX-Reswap", "innerHTML")
 	data := map[string]any{"Error": message}
 	if err := h.tmpl.ExecuteTemplate(c.Writer, "error", data); err != nil {
 		slog.Error("rendering error template", "error", err)

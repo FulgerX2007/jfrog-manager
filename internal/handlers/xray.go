@@ -24,7 +24,7 @@ func (h Handler) GetXray(c *gin.Context) {
 	summary, err := h.service.GetXraySummary(repo, path)
 	if err != nil {
 		slog.Error("getting xray summary", "error", err)
-		h.renderError(c, "Failed to load Xray data: "+err.Error())
+		h.renderError(c, "Failed to load Xray data")
 		return
 	}
 

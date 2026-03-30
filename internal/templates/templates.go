@@ -21,7 +21,7 @@ func FuncMap() template.FuncMap {
 		"countBySeverity": func(issues []models.XrayIssue, severity string) int {
 			count := 0
 			for _, issue := range issues {
-				if issue.Severity == severity {
+				if strings.EqualFold(issue.Severity, severity) {
 					count++
 				}
 			}
