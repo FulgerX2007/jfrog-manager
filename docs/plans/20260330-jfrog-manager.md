@@ -102,11 +102,11 @@
 - Modify: `internal/jfrog/artifacts.go`
 - Modify: `internal/jfrog/artifacts_test.go`
 
-- [ ] Add `UploadArtifact(repo, path string, reader io.Reader)` method — `PUT /artifactory/{repo}/{path}` with file body
-- [ ] Add `DeleteArtifact(repo, path string)` method — `DELETE /artifactory/{repo}/{path}`
-- [ ] Write tests for upload (verify body streamed, correct path, success + error)
-- [ ] Write tests for delete (success, 404, 403)
-- [ ] Run tests — must pass before next task
+- [x] Add `UploadArtifact(repo, path string, reader io.Reader)` method — `PUT /artifactory/{repo}/{path}` with file body
+- [x] Add `DeleteArtifact(repo, path string)` method — `DELETE /artifactory/{repo}/{path}`
+- [x] Write tests for upload (verify body streamed, correct path, success + error)
+- [x] Write tests for delete (success, 404, 403)
+- [x] Run tests — must pass before next task
 
 ### Task 6: Xray client
 
