@@ -51,12 +51,12 @@
 - Create: `internal/config/config.go`
 - Create: `internal/config/config_test.go`
 
-- [ ] Initialize Go module: `go mod init jfrog_manager`
-- [ ] Create `internal/config/config.go` — struct with `JFrogURL`, `JFrogAPIKey`, `Port`, `Timeout` fields; `Load()` returns `(Config, error)` as value types (no pointers); use godotenv + os.Getenv with defaults (port=8080, timeout=30); use `log/slog` for logging
-- [ ] Create `.env.example` with placeholder values
-- [ ] Create `main.go` — load config, init Gin, load templates, register placeholder route for `/`, start server
-- [ ] Write tests for config loading (defaults, env override, missing required fields)
-- [ ] Run tests — must pass before next task
+- [x] Initialize Go module: `go mod init jfrog_manager`
+- [x] Create `internal/config/config.go` — struct with `JFrogURL`, `JFrogAPIKey`, `Port`, `Timeout` fields; `Load()` returns `(Config, error)` as value types (no pointers); use godotenv + os.Getenv with defaults (port=8080, timeout=30); use `log/slog` for logging
+- [x] Create `.env.example` with placeholder values
+- [x] Create `main.go` — load config, init Gin, load templates, register placeholder route for `/`, start server
+- [x] Write tests for config loading (defaults, env override, missing required fields)
+- [x] Run tests — must pass before next task
 
 ### Task 2: JFrog HTTP client and service interface
 
