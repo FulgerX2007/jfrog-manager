@@ -147,15 +147,15 @@
 - Create: `internal/handlers/artifacts.go`
 - Create: `internal/handlers/artifacts_test.go`
 
-- [ ] Create `Handler` struct holding JFrog `Service` interface (not concrete `Client`) and Gin template engine
-- [ ] Implement `Index()` — render full `index.html` page
-- [ ] Implement `ListRepos()` — call client, render repo dropdown options as fragment
-- [ ] Implement `ListArtifacts()` — read `repo` query param, call client, render `artifact_list.html` fragment
-- [ ] Implement `UploadArtifact()` — parse multipart form, call client, re-render artifact list on success or error fragment on failure
-- [ ] Implement `DeleteArtifact()` — read `repo` + `path` params, call client, return empty response (htmx removes row) or error fragment
-- [ ] Write tests for each handler using `httptest.NewRecorder` and mock JFrog client
-- [ ] Write tests for error cases (missing params, client failures)
-- [ ] Run tests — must pass before next task
+- [x] Create `Handler` struct holding JFrog `Service` interface (not concrete `Client`) and Gin template engine
+- [x] Implement `Index()` — render full `index.html` page
+- [x] Implement `ListRepos()` — call client, render repo dropdown options as fragment
+- [x] Implement `ListArtifacts()` — read `repo` query param, call client, render `artifact_list.html` fragment
+- [x] Implement `UploadArtifact()` — parse multipart form, call client, re-render artifact list on success or error fragment on failure
+- [x] Implement `DeleteArtifact()` — read `repo` + `path` params, call client, return empty response (htmx removes row) or error fragment
+- [x] Write tests for each handler using `httptest.NewRecorder` and mock JFrog client
+- [x] Write tests for error cases (missing params, client failures)
+- [x] Run tests — must pass before next task
 
 ### Task 9: Gin handlers — Xray
 
