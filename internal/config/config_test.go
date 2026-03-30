@@ -90,3 +90,29 @@ func TestLoad_InvalidTimeout(t *testing.T) {
 		t.Fatal("expected error for invalid TIMEOUT")
 	}
 }
+
+func TestLoad_ZeroTimeout(t *testing.T) {
+	clearEnv()
+	os.Setenv("JFROG_URL", "https://example.jfrog.io")
+	os.Setenv("JFROG_API_KEY", "test-key")
+	os.Setenv("TIMEOUT", "0")
+	defer clearEnv()
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for zero TIMEOUT")
+	}
+}
+
+func TestLoad_NegativeTimeout(t *testing.T) {
+	clearEnv()
+	os.Setenv("JFROG_URL", "https://example.jfrog.io")
+	os.Setenv("JFROG_API_KEY", "test-key")
+	os.Setenv("TIMEOUT", "-5")
+	defer clearEnv()
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for negative TIMEOUT")
+	}
+}

@@ -44,6 +44,9 @@ func Load() (Config, error) {
 		if err != nil {
 			return Config{}, fmt.Errorf("TIMEOUT must be a valid integer: %w", err)
 		}
+		if val <= 0 {
+			return Config{}, fmt.Errorf("TIMEOUT must be a positive integer")
+		}
 		cfg.Timeout = val
 	}
 

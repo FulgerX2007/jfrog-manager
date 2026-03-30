@@ -295,6 +295,46 @@ func TestUploadArtifact_ClientError(t *testing.T) {
 	}
 }
 
+func TestUploadArtifact_RefreshFails(t *testing.T) {
+	mock := &mockService{
+		uploadErr: nil,
+		artsErr:   errors.New("connection refused"),
+	}
+	r := setupTestRouter(mock)
+	w := httptest.NewRecorder()
+	req := createMultipartRequest(t, "libs-release", "com/example/app.jar", "app.jar", "file-content")
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Upload succeeded but failed to refresh list") {
+		t.Error("expected refresh failure message after successful upload")
+	}
+}
+
+func TestUploadArtifact_PathTraversal(t *testing.T) {
+	r := setupTestRouter(&mockService{})
+	w := httptest.NewRecorder()
+	req := createMultipartRequest(t, "libs-release", "../../etc/passwd", "file.txt", "content")
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Invalid repository or path") {
+		t.Error("expected path traversal rejection")
+	}
+}
+
+func TestDeleteArtifact_PathTraversal(t *testing.T) {
+	r := setupTestRouter(&mockService{})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodDelete, "/artifacts?repo=../evil&path=file.jar", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Invalid repository or path") {
+		t.Error("expected path traversal rejection")
+	}
+}
+
 func TestDeleteArtifact_Success(t *testing.T) {
 	mock := &mockService{}
 	r := setupTestRouter(mock)

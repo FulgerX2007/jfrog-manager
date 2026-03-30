@@ -2,6 +2,7 @@ package templates
 
 import (
 	"html/template"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -11,7 +12,12 @@ import (
 // FuncMap returns the custom template functions used by the application templates.
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
-		"toLower": strings.ToLower,
+		"toLower":   strings.ToLower,
+		"urlEncode": url.QueryEscape,
+		"cssID": func(s string) string {
+			r := strings.NewReplacer("/", "-", ".", "-", " ", "-")
+			return r.Replace(s)
+		},
 		"countBySeverity": func(issues []models.XrayIssue, severity string) int {
 			count := 0
 			for _, issue := range issues {

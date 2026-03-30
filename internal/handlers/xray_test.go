@@ -160,6 +160,18 @@ func TestGetXray_MissingParams(t *testing.T) {
 	}
 }
 
+func TestGetXray_PathTraversal(t *testing.T) {
+	r := setupXrayTestRouter(&mockService{})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/xray?repo=libs-release&path=../../etc/passwd", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Invalid repository or path") {
+		t.Error("expected path traversal rejection")
+	}
+}
+
 func TestGetXray_ClientError(t *testing.T) {
 	mock := &mockService{
 		xrayErr: errors.New("xray service unavailable"),

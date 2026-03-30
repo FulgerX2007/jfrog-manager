@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"jfrog_manager/internal/jfrog"
 
@@ -80,6 +81,10 @@ func (h Handler) UploadArtifact(c *gin.Context) {
 		h.renderError(c, "Repository and path are required")
 		return
 	}
+	if strings.Contains(repo, "..") || strings.Contains(path, "..") {
+		h.renderError(c, "Invalid repository or path")
+		return
+	}
 
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
@@ -116,6 +121,10 @@ func (h Handler) DeleteArtifact(c *gin.Context) {
 	path := c.Query("path")
 	if repo == "" || path == "" {
 		h.renderError(c, "Repository and path are required")
+		return
+	}
+	if strings.Contains(repo, "..") || strings.Contains(path, "..") {
+		h.renderError(c, "Invalid repository or path")
 		return
 	}
 

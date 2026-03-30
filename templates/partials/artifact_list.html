@@ -12,28 +12,28 @@
     </thead>
     <tbody>
         {{range .Artifacts}}
-        <tr id="artifact-row-{{.Path}}">
+        <tr id="artifact-row-{{cssID .Path}}">
             <td>{{.Name}}</td>
             <td>{{.Path}}</td>
             <td>{{.Size}}</td>
             <td>{{.LastModified}}</td>
             <td>
                 <button class="btn btn-sm btn-info"
-                        hx-get="/xray?repo={{.Repo}}&path={{.Path}}"
-                        hx-target="#xray-panel-{{.Path}}"
+                        hx-get="/xray?repo={{urlEncode .Repo}}&path={{urlEncode .Path}}"
+                        hx-target="#xray-panel-{{cssID .Path}}"
                         hx-swap="innerHTML">
                     Xray
                 </button>
                 <button class="btn btn-sm btn-danger"
-                        hx-delete="/artifacts?repo={{.Repo}}&path={{.Path}}"
+                        hx-delete="/artifacts?repo={{urlEncode .Repo}}&path={{urlEncode .Path}}"
                         hx-confirm="Delete {{.Name}}?"
-                        hx-target="#artifact-row-{{.Path}}"
+                        hx-target="#artifact-row-{{cssID .Path}}"
                         hx-swap="outerHTML">
                     Delete
                 </button>
             </td>
         </tr>
-        <tr id="xray-panel-{{.Path}}" class="xray-panel"></tr>
+        <tr id="xray-panel-{{cssID .Path}}" class="xray-panel"></tr>
         {{end}}
     </tbody>
 </table>

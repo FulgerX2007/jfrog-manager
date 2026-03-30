@@ -2,7 +2,6 @@ package templates
 
 import (
 	"bytes"
-	"html/template"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -190,23 +189,36 @@ func TestXrayPanelRenders(t *testing.T) {
 }
 
 func TestUploadFormRenders(t *testing.T) {
-	// upload_form uses no dynamic data, just verify it renders
-	tmpl := template.Must(template.New("upload_form").Parse(`{{define "upload_form"}}test{{end}}`))
-	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "upload_form", nil); err != nil {
-		t.Fatalf("upload_form failed: %v", err)
-	}
-
-	// Also verify the real template parses and renders
-	tmpl2, err := Load(templateDir())
+	tmpl, err := Load(templateDir())
 	if err != nil {
 		t.Fatalf("failed to parse templates: %v", err)
 	}
-	buf.Reset()
-	if err := tmpl2.ExecuteTemplate(&buf, "upload_form", nil); err != nil {
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, "upload_form", nil); err != nil {
 		t.Fatalf("failed to render upload_form: %v", err)
 	}
 	if !bytes.Contains(buf.Bytes(), []byte("multipart/form-data")) {
 		t.Error("upload form missing multipart encoding")
+	}
+}
+
+func TestFuncMap_CssID(t *testing.T) {
+	fm := FuncMap()
+	fn := fm["cssID"].(func(string) string)
+
+	if got := fn("com/example/app.jar"); got != "com-example-app-jar" {
+		t.Errorf("cssID(com/example/app.jar) = %q, want %q", got, "com-example-app-jar")
+	}
+	if got := fn("simple"); got != "simple" {
+		t.Errorf("cssID(simple) = %q, want %q", got, "simple")
+	}
+}
+
+func TestFuncMap_UrlEncode(t *testing.T) {
+	fm := FuncMap()
+	fn := fm["urlEncode"].(func(string) string)
+
+	if got := fn("com/example/app.jar"); got != "com%2Fexample%2Fapp.jar" {
+		t.Errorf("urlEncode(com/example/app.jar) = %q, want %q", got, "com%%2Fexample%%2Fapp.jar")
 	}
 }

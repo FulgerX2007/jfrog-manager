@@ -3,6 +3,7 @@ package handlers
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +14,10 @@ func (h Handler) GetXray(c *gin.Context) {
 	path := c.Query("path")
 	if repo == "" || path == "" {
 		h.renderError(c, "Repository and path are required")
+		return
+	}
+	if strings.Contains(repo, "..") || strings.Contains(path, "..") {
+		h.renderError(c, "Invalid repository or path")
 		return
 	}
 

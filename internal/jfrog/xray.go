@@ -1,10 +1,10 @@
 package jfrog
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"jfrog_manager/internal/models"
 )
@@ -15,8 +15,16 @@ import (
 // Returns a summary with Available=false if Xray is unreachable or the artifact is not indexed.
 func (c Client) GetXraySummary(repo, path string) (models.XraySummary, error) {
 	url := c.baseURL + "/xray/api/v1/summary/artifact"
-	reqBody := fmt.Sprintf(`{"paths":["default/%s/%s"]}`, repo, path)
-	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(reqBody))
+	payload := struct {
+		Paths []string `json:"paths"`
+	}{
+		Paths: []string{fmt.Sprintf("default/%s/%s", repo, path)},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return models.XraySummary{}, fmt.Errorf("marshaling request body: %w", err)
+	}
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return models.XraySummary{}, fmt.Errorf("creating request: %w", err)
 	}
