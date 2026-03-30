@@ -43,7 +43,7 @@ func TestGetXraySummary_WithVulnerabilities(t *testing.T) {
 					{
 						"name": "Apache-2.0",
 						"full_name": "Apache License 2.0",
-						"components": [{"component_id": "gav://com.example:lib:1.0"}]
+						"components": ["gav://com.example:lib:1.0"]
 					}
 				]
 			}]
@@ -156,9 +156,10 @@ func TestGetXraySummary_XrayServerError(t *testing.T) {
 
 func TestGetXraySummary_ConnectionError(t *testing.T) {
 	cfg := config.Config{
-		JFrogURL:    "http://localhost:1",
-		JFrogAPIKey: "key",
-		Timeout:     1,
+		JFrogURL:      "http://localhost:1",
+		JFrogUsername: "user",
+		JFrogToken:    "token",
+		Timeout:       1,
 	}
 	client := NewClient(cfg)
 	summary, err := client.GetXraySummary("repo", "file.jar")

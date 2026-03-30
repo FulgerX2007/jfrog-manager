@@ -1,24 +1,30 @@
 {{define "upload_form"}}
-<div class="card card-body">
-    <form hx-post="/artifacts/upload" hx-encoding="multipart/form-data"
-          hx-target="#artifact-list" hx-on::after-request="if(event.detail.successful) this.reset()">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label for="upload-repo" class="form-label">Repository</label>
-                <input type="text" class="form-control" id="upload-repo" name="repo" required
-                       placeholder="e.g. libs-release-local">
+<div class="o-upload-card">
+    <form id="upload-form" onsubmit="uploadWithProgress(event)">
+        <input type="hidden" id="upload-repo" name="repo">
+        <div class="o-toolbar">
+            <div class="o-field o-field-grow">
+                <label for="upload-folder" class="o-label">Folder (optional)</label>
+                <input type="text" class="o-input" id="upload-folder" name="folder"
+                       placeholder="e.g. com/example" style="width:100%">
             </div>
-            <div class="col-md-4">
-                <label for="upload-path" class="form-label">Path</label>
-                <input type="text" class="form-control" id="upload-path" name="path" required
-                       placeholder="e.g. com/example/artifact.jar">
+            <div class="o-field o-field-grow">
+                <label for="upload-file" class="o-label">File</label>
+                <input type="file" class="o-input" id="upload-file" name="file" required style="width:100%">
             </div>
-            <div class="col-md-3">
-                <label for="upload-file" class="form-label">File</label>
-                <input type="file" class="form-control" id="upload-file" name="file" required>
+            <div class="o-field">
+                <button type="submit" id="upload-btn" class="o-btn o-btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload
+                </button>
             </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-success w-100">Upload</button>
+        </div>
+        <div id="upload-progress" style="display:none;margin-top:0.75rem">
+            <div style="display:flex;align-items:center;gap:0.75rem">
+                <div class="o-progress-track">
+                    <div id="upload-progress-bar" class="o-progress-fill" style="width:0%"></div>
+                </div>
+                <span id="upload-progress-text" style="font-size:0.8125rem;font-weight:600;color:var(--grey-700);min-width:3.5rem;text-align:right">0%</span>
             </div>
         </div>
     </form>

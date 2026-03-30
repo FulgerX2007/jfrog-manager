@@ -65,7 +65,7 @@ type XrayComponent struct {
 
 // XrayLicense represents license information from an Xray scan.
 type XrayLicense struct {
-	Name       string          `json:"name"`
-	FullName   string          `json:"full_name"`
-	Components []XrayComponent `json:"components"`
+	Name       string   `json:"name"`
+	FullName   string   `json:"full_name"`
+	Components []string `json:"components"`
 }

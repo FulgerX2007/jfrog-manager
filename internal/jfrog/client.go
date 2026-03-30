@@ -27,9 +27,11 @@ type storageListFile struct {
 
 // Client implements the Service interface for JFrog Artifactory API calls.
 type Client struct {
-	httpClient http.Client
-	baseURL    string
-	apiKey     string
+	httpClient       http.Client
+	uploadHTTPClient http.Client
+	baseURL          string
+	username         string
+	token            string
 }
 
 // NewClient creates a new JFrog API client from the application config.
@@ -38,15 +40,23 @@ func NewClient(cfg config.Config) Client {
 		httpClient: http.Client{
 			Timeout: time.Duration(cfg.Timeout) * time.Second,
 		},
-		baseURL: strings.TrimRight(cfg.JFrogURL, "/"),
-		apiKey:  cfg.JFrogAPIKey,
+		uploadHTTPClient: http.Client{},
+		baseURL:          strings.TrimRight(cfg.JFrogURL, "/"),
+		username:         cfg.JFrogUsername,
+		token:            cfg.JFrogToken,
 	}
 }
 
-// Do executes an HTTP request with the JFrog API key header injected.
+// Do executes an HTTP request with basic auth injected.
 func (c Client) Do(req *http.Request) (*http.Response, error) {
-	req.Header.Set("X-JFrog-Art-Api", c.apiKey)
+	req.SetBasicAuth(c.username, c.token)
 	return c.httpClient.Do(req)
+}
+
+// doUpload executes an upload request without a fixed timeout.
+func (c Client) doUpload(req *http.Request) (*http.Response, error) {
+	req.SetBasicAuth(c.username, c.token)
+	return c.uploadHTTPClient.Do(req)
 }
 
 func (c Client) ListArtifacts(repo string) ([]models.Artifact, error) {
@@ -75,6 +85,9 @@ func (c Client) ListArtifacts(repo string) ([]models.Artifact, error) {
 		if idx := strings.LastIndex(f.URI, "/"); idx >= 0 {
 			name = f.URI[idx+1:]
 		}
+		if name == "repomd.xml" || strings.HasSuffix(name, ".xml.gz") {
+			continue
+		}
 		artifacts = append(artifacts, models.Artifact{
 			Name:         name,
 			Path:         strings.TrimPrefix(f.URI, "/"),
@@ -93,7 +106,7 @@ func (c Client) UploadArtifact(repo, path string, reader io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
-	resp, err := c.Do(req)
+	resp, err := c.doUpload(req)
 	if err != nil {
 		return fmt.Errorf("uploading artifact: %w", err)
 	}

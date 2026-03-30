@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JFrog Manager</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script>
         document.addEventListener("htmx:beforeSwap", function(evt) {
@@ -17,22 +18,670 @@
         });
     </script>
     <style>
-        .severity-critical { background-color: #dc3545; color: white; }
-        .severity-high { background-color: #fd7e14; color: white; }
-        .severity-medium { background-color: #ffc107; color: black; }
-        .severity-low { background-color: #0dcaf0; color: black; }
+        :root {
+            --orange-primary: #FF7900;
+            --orange-dark: #F16E00;
+            --orange-light: #FFF0E2;
+            --black: #000000;
+            --grey-900: #333333;
+            --grey-700: #595959;
+            --grey-500: #8F8F8F;
+            --grey-300: #CCCCCC;
+            --grey-100: #F6F6F6;
+            --white: #FFFFFF;
+            --success: #32C832;
+            --success-light: #E8F9E8;
+            --error: #CD3C14;
+            --error-light: #FCEAE6;
+            --info: #4BB4E6;
+            --info-light: #E5F5FC;
+            --warning: #FFB400;
+            --warning-light: #FFF6E1;
+            --font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--grey-100);
+            color: var(--grey-900);
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Navbar ── */
+        .o-navbar {
+            background-color: var(--black);
+            padding: 0 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .o-navbar-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            height: 56px;
+            gap: 1rem;
+        }
+        .o-navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+        }
+        .o-navbar-logo {
+            width: 36px;
+            height: 36px;
+            background-color: var(--orange-primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .o-navbar-logo svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--white);
+        }
+        .o-navbar-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--white);
+            letter-spacing: -0.01em;
+        }
+        .o-navbar-subtitle {
+            font-size: 0.75rem;
+            color: var(--grey-500);
+            font-weight: 400;
+            letter-spacing: 0.02em;
+        }
+
+        /* ── Main container ── */
+        .o-main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        /* ── Cards ── */
+        .o-card {
+            background: var(--white);
+            border-radius: 12px;
+            border: 1px solid var(--grey-300);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .o-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .o-card-title {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--grey-700);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        /* ── Toolbar ── */
+        .o-toolbar {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .o-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .o-field-grow { flex: 1; min-width: 200px; }
+        .o-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--grey-700);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* ── Inputs ── */
+        .o-select, .o-input {
+            font-family: var(--font-family);
+            font-size: 0.875rem;
+            height: 40px;
+            padding: 0 0.75rem;
+            border: 2px solid var(--grey-300);
+            border-radius: 8px;
+            background-color: var(--white);
+            color: var(--grey-900);
+            outline: none;
+            transition: border-color 0.15s ease;
+        }
+        .o-select:focus, .o-input:focus {
+            border-color: var(--orange-primary);
+            box-shadow: 0 0 0 3px var(--orange-light);
+        }
+        .o-select { cursor: pointer; padding-right: 2rem; }
+        input[type="file"].o-input {
+            padding: 0.4rem 0.75rem;
+            line-height: 1;
+        }
+
+        /* ── Buttons ── */
+        .o-btn {
+            font-family: var(--font-family);
+            font-size: 0.875rem;
+            font-weight: 600;
+            height: 40px;
+            padding: 0 1.25rem;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .o-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .o-btn-primary {
+            background-color: var(--orange-primary);
+            color: var(--white);
+            border-color: var(--orange-primary);
+        }
+        .o-btn-primary:hover:not(:disabled) {
+            background-color: var(--orange-dark);
+            border-color: var(--orange-dark);
+        }
+        .o-btn-secondary {
+            background-color: var(--white);
+            color: var(--grey-900);
+            border-color: var(--grey-300);
+        }
+        .o-btn-secondary:hover:not(:disabled) {
+            border-color: var(--grey-900);
+            background-color: var(--grey-100);
+        }
+        .o-btn-dark {
+            background-color: var(--black);
+            color: var(--white);
+        }
+        .o-btn-dark:hover:not(:disabled) {
+            background-color: var(--grey-900);
+        }
+        .o-btn-danger {
+            background-color: var(--error);
+            color: var(--white);
+            border-color: var(--error);
+        }
+        .o-btn-danger:hover:not(:disabled) {
+            background-color: #b83411;
+            border-color: #b83411;
+        }
+        .o-btn-ghost {
+            background: transparent;
+            color: var(--grey-700);
+            border-color: transparent;
+            padding: 0 0.6rem;
+        }
+        .o-btn-ghost:hover:not(:disabled) {
+            background-color: var(--grey-100);
+            color: var(--grey-900);
+        }
+        .o-btn-sm {
+            height: 32px;
+            padding: 0 0.75rem;
+            font-size: 0.8125rem;
+            border-radius: 6px;
+        }
+
+        /* ── Table ── */
+        .o-table-wrap {
+            overflow-x: auto;
+        }
+        .o-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.875rem;
+        }
+        .o-table thead th {
+            background-color: var(--grey-100);
+            color: var(--grey-700);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 0.625rem 0.75rem;
+            border-bottom: 2px solid var(--grey-300);
+            text-align: left;
+            position: sticky;
+            top: 0;
+        }
+        .o-table thead th:first-child { border-radius: 8px 0 0 0; }
+        .o-table thead th:last-child { border-radius: 0 8px 0 0; }
+        .o-table tbody td {
+            padding: 0.625rem 0.75rem;
+            border-bottom: 1px solid var(--grey-100);
+            vertical-align: middle;
+        }
+        .o-table tbody tr:hover td {
+            background-color: var(--orange-light);
+        }
+        .o-table .col-checkbox { width: 40px; }
+        .o-table .col-actions { width: 140px; text-align: right; }
+
+        /* ── Checkbox ── */
+        .o-check {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--orange-primary);
+            cursor: pointer;
+        }
+
+        /* ── Badges ── */
+        .o-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+        .o-badge-critical { background-color: var(--error); color: var(--white); }
+        .o-badge-high { background-color: var(--orange-primary); color: var(--white); }
+        .o-badge-medium { background-color: var(--warning); color: var(--black); }
+        .o-badge-low { background-color: var(--info); color: var(--black); }
+
+        /* ── Severity badges (old class compat) ── */
+        .severity-critical { background-color: var(--error); color: var(--white); }
+        .severity-high { background-color: var(--orange-primary); color: var(--white); }
+        .severity-medium { background-color: var(--warning); color: var(--black); }
+        .severity-low { background-color: var(--info); color: var(--black); }
+
+        /* ── Alerts ── */
+        .o-alert {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .o-alert-danger {
+            background-color: var(--error-light);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+        .o-alert-info {
+            background-color: var(--info-light);
+            border: 1px solid var(--info);
+            color: var(--grey-900);
+        }
+        .o-alert-muted {
+            background-color: var(--grey-100);
+            border: 1px solid var(--grey-300);
+            color: var(--grey-500);
+        }
+        .o-alert-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.6;
+            line-height: 1;
+        }
+        .o-alert-close:hover { opacity: 1; }
+
+        /* ── Upload card ── */
+        .o-upload-card {
+            background: var(--grey-100);
+            border: 2px dashed var(--grey-300);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1rem;
+            transition: border-color 0.15s ease;
+        }
+        .o-upload-card:hover {
+            border-color: var(--orange-primary);
+        }
+
+        /* ── Empty state ── */
+        .o-empty {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--grey-500);
+        }
+        .o-empty-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            opacity: 0.4;
+        }
+        .o-empty-text {
+            font-size: 0.9375rem;
+        }
+
+        /* ── Loading indicator ── */
+        .htmx-indicator {
+            display: none;
+        }
+        .htmx-request .htmx-indicator {
+            display: inline-block;
+        }
+        .htmx-request.htmx-indicator {
+            display: inline-block;
+        }
+        .o-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--grey-300);
+            border-top-color: var(--orange-primary);
+            border-radius: 50%;
+            animation: o-spin 0.6s linear infinite;
+            display: inline-block;
+        }
+        @keyframes o-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ── Xray panel ── */
+        .o-xray-panel td {
+            padding: 0 !important;
+            border-bottom: none !important;
+        }
+        .o-xray-inner {
+            padding: 0.75rem;
+            background-color: var(--grey-100);
+            border-radius: 0 0 8px 8px;
+            margin: 0 0.75rem 0.5rem 0.75rem;
+        }
+
+        /* ── Vulnerability list ── */
+        .o-vuln-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background-color: var(--grey-300);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .o-vuln-row {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            background-color: var(--white);
+            align-items: flex-start;
+            border-left: 3px solid transparent;
+        }
+        .o-vuln-row.o-vuln-critical { border-left-color: var(--error); }
+        .o-vuln-row.o-vuln-high { border-left-color: var(--orange-primary); }
+        .o-vuln-row.o-vuln-medium { border-left-color: var(--warning); }
+        .o-vuln-row.o-vuln-low { border-left-color: var(--info); }
+        .o-vuln-severity {
+            flex-shrink: 0;
+            width: 72px;
+        }
+        .o-vuln-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .o-vuln-cves {
+            margin-bottom: 0.15rem;
+        }
+        .o-vuln-cves code {
+            font-size: 0.75rem;
+            background-color: var(--grey-100);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            color: var(--grey-700);
+            font-weight: 600;
+        }
+        .o-vuln-summary {
+            font-size: 0.8125rem;
+            color: var(--grey-700);
+            line-height: 1.4;
+        }
+
+        /* ── Bulk actions bar ── */
+        .o-bulk-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+        }
+        .o-bulk-count {
+            font-size: 0.8125rem;
+            color: var(--grey-700);
+        }
+
+        /* ── Progress bar ── */
+        .o-progress-track {
+            flex: 1;
+            height: 8px;
+            background-color: var(--grey-300);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+        .o-progress-fill {
+            height: 100%;
+            background-color: var(--orange-primary);
+            border-radius: 100px;
+            transition: width 0.15s ease;
+        }
+        .o-progress-fill.o-progress-done {
+            background-color: var(--success);
+        }
+        .o-progress-fill.o-progress-error {
+            background-color: var(--error);
+        }
+
+        /* ── Fade-in animation ── */
+        @keyframes o-fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .o-card { animation: o-fadeIn 0.2s ease; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .o-toolbar { flex-direction: column; align-items: stretch; }
+            .o-field-grow { min-width: auto; }
+            .o-navbar-subtitle { display: none; }
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark mb-4">
-        <div class="container">
-            <span class="navbar-brand">JFrog Manager</span>
+    <nav class="o-navbar">
+        <div class="o-navbar-inner">
+            <a class="o-navbar-brand" href="/">
+                <div class="o-navbar-logo">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+                </div>
+                <div>
+                    <div class="o-navbar-title">JFrog Manager</div>
+                    <div class="o-navbar-subtitle">Artifact Repository</div>
+                </div>
+            </a>
         </div>
     </nav>
-    <div class="container">
+    <div class="o-main">
         {{template "content" .}}
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Sync upload form repo with dropdown selection
+        function syncUploadRepo() {
+            var repoSelect = document.getElementById('repo-select');
+            var uploadRepo = document.getElementById('upload-repo');
+            if (repoSelect && uploadRepo) {
+                uploadRepo.value = repoSelect.value;
+            }
+        }
+        // Restore last used folder from localStorage
+        function restoreFolder() {
+            var folderInput = document.getElementById('upload-folder');
+            if (folderInput) {
+                var saved = localStorage.getItem('jfrog-last-folder');
+                if (saved) folderInput.value = saved;
+            }
+        }
+        // Save folder to localStorage on change
+        document.addEventListener('input', function(e) {
+            if (e.target && e.target.id === 'upload-folder') {
+                localStorage.setItem('jfrog-last-folder', e.target.value);
+            }
+        });
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'repo-select') {
+                syncUploadRepo();
+            }
+        });
+        document.addEventListener('shown.bs.collapse', function(e) {
+            if (e.target && e.target.id === 'upload-section') {
+                syncUploadRepo();
+                restoreFolder();
+            }
+        });
+        document.addEventListener('htmx:afterSettle', function() {
+            syncUploadRepo();
+            restoreFolder();
+        });
+
+        // Checkbox management
+        function toggleAll(source) {
+            var checkboxes = document.querySelectorAll('.artifact-checkbox');
+            checkboxes.forEach(function(cb) { cb.checked = source.checked; });
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            var checked = document.querySelectorAll('.artifact-checkbox:checked');
+            var countEl = document.getElementById('selected-count');
+            var btn = document.getElementById('bulk-delete-btn');
+            if (countEl) countEl.textContent = checked.length;
+            if (btn) btn.disabled = checked.length === 0;
+
+            var all = document.querySelectorAll('.artifact-checkbox');
+            var selectAll = document.getElementById('select-all');
+            if (selectAll && all.length > 0) {
+                selectAll.checked = checked.length === all.length;
+                selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+            }
+        }
+
+        function bulkDelete() {
+            var checked = document.querySelectorAll('.artifact-checkbox:checked');
+            if (checked.length === 0) return;
+
+            if (!confirm('Delete ' + checked.length + ' artifact(s)?')) return;
+
+            var paths = [];
+            checked.forEach(function(cb) { paths.push(cb.value); });
+
+            var repo = document.getElementById('repo-select').value;
+
+            fetch('/artifacts/bulk-delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({repo: repo, paths: paths})
+            }).then(function(resp) {
+                return resp.text().then(function(html) {
+                    if (resp.ok) {
+                        document.getElementById('artifact-list').innerHTML = html;
+                        htmx.process(document.getElementById('artifact-list'));
+                    } else {
+                        document.getElementById('error-container').innerHTML = html;
+                    }
+                });
+            });
+        }
+
+        // Upload with progress bar
+        function uploadWithProgress(e) {
+            e.preventDefault();
+            var form = document.getElementById('upload-form');
+            var btn = document.getElementById('upload-btn');
+            var progressWrap = document.getElementById('upload-progress');
+            var progressBar = document.getElementById('upload-progress-bar');
+            var progressText = document.getElementById('upload-progress-text');
+
+            var formData = new FormData(form);
+
+            btn.disabled = true;
+            progressWrap.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressBar.className = 'o-progress-fill';
+            progressText.textContent = '0%';
+
+            var xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', function(evt) {
+                if (evt.lengthComputable) {
+                    var pct = Math.round((evt.loaded / evt.total) * 100);
+                    progressBar.style.width = pct + '%';
+                    progressText.textContent = pct + '%';
+                }
+            });
+
+            xhr.addEventListener('load', function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    progressBar.style.width = '100%';
+                    progressBar.classList.add('o-progress-done');
+                    progressText.textContent = 'Done';
+                    document.getElementById('artifact-list').innerHTML = xhr.responseText;
+                    htmx.process(document.getElementById('artifact-list'));
+                    form.reset();
+                    restoreFolder();
+                    setTimeout(function() {
+                        progressWrap.style.display = 'none';
+                    }, 1500);
+                } else {
+                    progressBar.style.width = '100%';
+                    progressBar.classList.add('o-progress-error');
+                    progressText.textContent = 'Error';
+                    document.getElementById('error-container').innerHTML = xhr.responseText;
+                    setTimeout(function() {
+                        progressWrap.style.display = 'none';
+                    }, 3000);
+                }
+                btn.disabled = false;
+            });
+
+            xhr.addEventListener('error', function() {
+                progressBar.style.width = '100%';
+                progressBar.classList.add('o-progress-error');
+                progressText.textContent = 'Error';
+                btn.disabled = false;
+                setTimeout(function() {
+                    progressWrap.style.display = 'none';
+                }, 3000);
+            });
+
+            xhr.open('POST', '/artifacts/upload');
+            xhr.send(formData);
+        }
+
+        // Dismiss alert
+        function dismissAlert(el) {
+            el.closest('.o-alert').remove();
+        }
+    </script>
 </body>
 </html>
 {{end}}

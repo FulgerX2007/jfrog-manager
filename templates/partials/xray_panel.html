@@ -1,49 +1,48 @@
 {{define "xray_panel"}}
 {{if not .Available}}
-<td colspan="5">
-    <div class="alert alert-secondary mb-0 py-2">
-        Xray not configured or artifact not indexed.
+<td colspan="6">
+    <div class="o-xray-inner">
+        <div class="o-alert o-alert-muted" style="margin-bottom:0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            Xray not configured or artifact not indexed.
+        </div>
     </div>
 </td>
 {{else}}
-<td colspan="5">
-    <div class="card card-body mb-0 py-2">
+<td colspan="6">
+    <div class="o-xray-inner">
         {{if not .Artifacts}}
-        <span class="text-muted">No vulnerability data available for this artifact.</span>
+        <span style="color:var(--grey-500);font-size:0.875rem">No vulnerability data available for this artifact.</span>
         {{end}}
         {{range .Artifacts}}
-        <div class="mb-2">
-            <strong>Vulnerability Summary:</strong>
-            {{if .Issues}}
-            <span class="badge severity-critical">Critical: {{countBySeverity .Issues "Critical"}}</span>
-            <span class="badge severity-high">High: {{countBySeverity .Issues "High"}}</span>
-            <span class="badge severity-medium">Medium: {{countBySeverity .Issues "Medium"}}</span>
-            <span class="badge severity-low">Low: {{countBySeverity .Issues "Low"}}</span>
-            {{else}}
-            <span class="text-success">No vulnerabilities found.</span>
+        {{if .Issues}}
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap">
+            <strong style="font-size:0.8125rem;color:var(--grey-700);text-transform:uppercase;letter-spacing:0.04em">Vulnerabilities</strong>
+            <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
+                {{if countBySeverity .Issues "Critical"}}<span class="o-badge o-badge-critical">{{countBySeverity .Issues "Critical"}} Critical</span>{{end}}
+                {{if countBySeverity .Issues "High"}}<span class="o-badge o-badge-high">{{countBySeverity .Issues "High"}} High</span>{{end}}
+                {{if countBySeverity .Issues "Medium"}}<span class="o-badge o-badge-medium">{{countBySeverity .Issues "Medium"}} Medium</span>{{end}}
+                {{if countBySeverity .Issues "Low"}}<span class="o-badge o-badge-low">{{countBySeverity .Issues "Low"}} Low</span>{{end}}
+            </div>
+        </div>
+        <div class="o-vuln-list">
+            {{range sortBySeverity .Issues}}
+            <div class="o-vuln-row o-vuln-{{toLower .Severity}}">
+                <div class="o-vuln-severity">
+                    <span class="o-badge o-badge-{{toLower .Severity}}">{{.Severity}}</span>
+                </div>
+                <div class="o-vuln-body">
+                    <div class="o-vuln-cves">{{range .CVEs}}<code>{{.ID}}</code> {{end}}</div>
+                    <div class="o-vuln-summary">{{.Summary}}</div>
+                </div>
+            </div>
             {{end}}
         </div>
-        {{if .Issues}}
-        <table class="table table-sm table-bordered mb-0">
-            <thead>
-                <tr>
-                    <th>Severity</th>
-                    <th>CVE</th>
-                    <th>Summary</th>
-                    <th>Components</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Issues}}
-                <tr>
-                    <td><span class="badge severity-{{toLower .Severity}}">{{.Severity}}</span></td>
-                    <td>{{range .CVEs}}{{.ID}} {{end}}</td>
-                    <td>{{.Summary}}</td>
-                    <td>{{range .Components}}{{.ID}} {{end}}</td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
+        {{else}}
+        <div style="display:flex;align-items:center;gap:0.5rem;color:var(--success);font-size:0.875rem;font-weight:600">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            No vulnerabilities found.
+        </div>
         {{end}}
         {{end}}
     </div>

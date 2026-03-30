@@ -16,35 +16,41 @@ func newTestServer(handler http.HandlerFunc) *httptest.Server {
 
 func newTestClient(serverURL string) Client {
 	cfg := config.Config{
-		JFrogURL:    serverURL,
-		JFrogAPIKey: "test-api-key",
-		Port:        "8080",
-		Timeout:     5,
+		JFrogURL:      serverURL,
+		JFrogUsername: "test-user",
+		JFrogToken:    "test-token",
+		Port:          "8080",
+		Timeout:       5,
 	}
 	return NewClient(cfg)
 }
 
 func TestNewClient_SetsFields(t *testing.T) {
 	cfg := config.Config{
-		JFrogURL:    "https://artifactory.example.com/",
-		JFrogAPIKey: "my-key",
-		Port:        "9090",
-		Timeout:     10,
+		JFrogURL:      "https://artifactory.example.com/",
+		JFrogUsername: "user",
+		JFrogToken:    "tok",
+		Port:          "9090",
+		Timeout:       10,
 	}
 	client := NewClient(cfg)
 
 	if client.baseURL != "https://artifactory.example.com" {
 		t.Errorf("expected trailing slash trimmed, got %s", client.baseURL)
 	}
-	if client.apiKey != "my-key" {
-		t.Errorf("expected apiKey 'my-key', got %s", client.apiKey)
+	if client.username != "user" {
+		t.Errorf("expected username 'user', got %s", client.username)
+	}
+	if client.token != "tok" {
+		t.Errorf("expected token 'tok', got %s", client.token)
 	}
 }
 
-func TestDo_InjectsAuthHeader(t *testing.T) {
-	var receivedHeader string
+func TestDo_InjectsBasicAuth(t *testing.T) {
+	var receivedUser, receivedPass string
+	var hasAuth bool
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
-		receivedHeader = r.Header.Get("X-JFrog-Art-Api")
+		receivedUser, receivedPass, hasAuth = r.BasicAuth()
 		w.WriteHeader(http.StatusOK)
 	})
 	defer server.Close()
@@ -56,17 +62,23 @@ func TestDo_InjectsAuthHeader(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if receivedHeader != "test-api-key" {
-		t.Errorf("expected auth header 'test-api-key', got '%s'", receivedHeader)
+	if !hasAuth {
+		t.Fatal("expected Basic Auth header to be present")
+	}
+	if receivedUser != "test-user" {
+		t.Errorf("expected username 'test-user', got '%s'", receivedUser)
+	}
+	if receivedPass != "test-token" {
+		t.Errorf("expected token 'test-token', got '%s'", receivedPass)
 	}
 }
 
 func TestListRepos_CorrectURLAndAuth(t *testing.T) {
 	var requestPath string
-	var authHeader string
+	var hasAuth bool
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		requestPath = r.URL.Path
-		authHeader = r.Header.Get("X-JFrog-Art-Api")
+		_, _, hasAuth = r.BasicAuth()
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`[{"key":"repo1","type":"local","packageType":"maven","description":"test repo"}]`))
 	})
@@ -81,8 +93,8 @@ func TestListRepos_CorrectURLAndAuth(t *testing.T) {
 	if requestPath != "/artifactory/api/repositories" {
 		t.Errorf("expected path '/artifactory/api/repositories', got '%s'", requestPath)
 	}
-	if authHeader != "test-api-key" {
-		t.Errorf("expected auth header 'test-api-key', got '%s'", authHeader)
+	if !hasAuth {
+		t.Error("expected Basic Auth header to be present")
 	}
 	if len(repos) != 1 || repos[0].Key != "repo1" {
 		t.Errorf("unexpected repos: %+v", repos)
@@ -260,9 +272,10 @@ func TestGetXraySummary_CorrectURLAndBody(t *testing.T) {
 
 func TestListRepos_ConnectionRefused(t *testing.T) {
 	cfg := config.Config{
-		JFrogURL:    "http://localhost:1", // unlikely to have anything listening
-		JFrogAPIKey: "key",
-		Timeout:     1,
+		JFrogURL:      "http://localhost:1", // unlikely to have anything listening
+		JFrogUsername: "user",
+		JFrogToken:    "token",
+		Timeout:       1,
 	}
 	client := NewClient(cfg)
 	_, err := client.ListRepos()

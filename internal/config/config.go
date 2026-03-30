@@ -10,10 +10,12 @@ import (
 )
 
 type Config struct {
-	JFrogURL    string
-	JFrogAPIKey string
-	Port        string
-	Timeout     int
+	JFrogURL      string
+	JFrogUsername string
+	JFrogToken    string
+	Port          string
+	Timeout       int
+	DefaultRepo   string
 }
 
 func Load() (Config, error) {
@@ -22,22 +24,28 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		JFrogURL:    os.Getenv("JFROG_URL"),
-		JFrogAPIKey: os.Getenv("JFROG_API_KEY"),
-		Port:        os.Getenv("PORT"),
-		Timeout:     30,
+		JFrogURL:      os.Getenv("JFROG_URL"),
+		JFrogUsername: os.Getenv("JFROG_USERNAME"),
+		JFrogToken:    os.Getenv("JFROG_TOKEN"),
+		Port:          os.Getenv("PORT"),
+		Timeout:       30,
 	}
 
 	if cfg.JFrogURL == "" {
 		return Config{}, fmt.Errorf("JFROG_URL is required")
 	}
-	if cfg.JFrogAPIKey == "" {
-		return Config{}, fmt.Errorf("JFROG_API_KEY is required")
+	if cfg.JFrogUsername == "" {
+		return Config{}, fmt.Errorf("JFROG_USERNAME is required")
+	}
+	if cfg.JFrogToken == "" {
+		return Config{}, fmt.Errorf("JFROG_TOKEN is required")
 	}
 
 	if cfg.Port == "" {
 		cfg.Port = "8080"
 	}
+
+	cfg.DefaultRepo = os.Getenv("DEFAULT_REPO")
 
 	if t := os.Getenv("TIMEOUT"); t != "" {
 		val, err := strconv.Atoi(t)

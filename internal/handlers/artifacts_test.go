@@ -64,13 +64,14 @@ func setupTestRouter(mock *mockService) *gin.Engine {
 		panic("failed to load templates: " + err.Error())
 	}
 
-	h := NewHandler(mock, tmpl)
+	h := NewHandler(mock, tmpl, "")
 
 	r := gin.New()
 	r.GET("/", h.Index)
 	r.GET("/repos", h.ListRepos)
 	r.GET("/artifacts", h.ListArtifacts)
 	r.POST("/artifacts/upload", h.UploadArtifact)
+	r.POST("/artifacts/bulk-delete", h.BulkDeleteArtifacts)
 	r.DELETE("/artifacts", h.DeleteArtifact)
 
 	return r
@@ -216,12 +217,12 @@ func TestListArtifacts_Empty(t *testing.T) {
 	}
 }
 
-func createMultipartRequest(t *testing.T, repo, path, filename, content string) *http.Request {
+func createMultipartRequest(t *testing.T, repo, folder, filename, content string) *http.Request {
 	t.Helper()
 	body := &strings.Builder{}
 	writer := multipart.NewWriter(body)
 	_ = writer.WriteField("repo", repo)
-	_ = writer.WriteField("path", path)
+	_ = writer.WriteField("folder", folder)
 	part, err := writer.CreateFormFile("file", filename)
 	if err != nil {
 		t.Fatal(err)
@@ -242,7 +243,7 @@ func TestUploadArtifact_Success(t *testing.T) {
 	}
 	r := setupTestRouter(mock)
 	w := httptest.NewRecorder()
-	req := createMultipartRequest(t, "libs-release", "com/example/app.jar", "app.jar", "file-content")
+	req := createMultipartRequest(t, "libs-release", "com/example", "app.jar", "file-content")
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
@@ -260,15 +261,34 @@ func TestUploadArtifact_Success(t *testing.T) {
 	}
 }
 
-func TestUploadArtifact_MissingParams(t *testing.T) {
+func TestUploadArtifact_NoFolder(t *testing.T) {
+	mock := &mockService{
+		artifacts: []models.Artifact{
+			{Name: "app.jar", Path: "app.jar", Size: 1024, Repo: "libs-release"},
+		},
+	}
+	r := setupTestRouter(mock)
+	w := httptest.NewRecorder()
+	req := createMultipartRequest(t, "libs-release", "", "app.jar", "file-content")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if mock.uploadedPath != "app.jar" {
+		t.Errorf("expected path 'app.jar', got '%s'", mock.uploadedPath)
+	}
+}
+
+func TestUploadArtifact_MissingRepo(t *testing.T) {
 	r := setupTestRouter(&mockService{})
 	w := httptest.NewRecorder()
-	req := createMultipartRequest(t, "", "path", "file.txt", "content")
+	req := createMultipartRequest(t, "", "somefolder", "file.txt", "content")
 	r.ServeHTTP(w, req)
 
 	body := w.Body.String()
-	if !strings.Contains(body, "Repository and path are required") {
-		t.Error("expected missing params error")
+	if !strings.Contains(body, "Repository is required") {
+		t.Error("expected missing repo error")
 	}
 }
 
@@ -279,7 +299,7 @@ func TestUploadArtifact_MissingFile(t *testing.T) {
 	body := &strings.Builder{}
 	writer := multipart.NewWriter(body)
 	_ = writer.WriteField("repo", "libs-release")
-	_ = writer.WriteField("path", "some/path")
+	_ = writer.WriteField("folder", "some/path")
 	_ = writer.Close()
 
 	req, _ := http.NewRequest(http.MethodPost, "/artifacts/upload", strings.NewReader(body.String()))
@@ -298,7 +318,7 @@ func TestUploadArtifact_ClientError(t *testing.T) {
 	}
 	r := setupTestRouter(mock)
 	w := httptest.NewRecorder()
-	req := createMultipartRequest(t, "libs-release", "path", "file.txt", "content")
+	req := createMultipartRequest(t, "libs-release", "somefolder", "file.txt", "content")
 	r.ServeHTTP(w, req)
 
 	body := w.Body.String()
@@ -314,7 +334,7 @@ func TestUploadArtifact_RefreshFails(t *testing.T) {
 	}
 	r := setupTestRouter(mock)
 	w := httptest.NewRecorder()
-	req := createMultipartRequest(t, "libs-release", "com/example/app.jar", "app.jar", "file-content")
+	req := createMultipartRequest(t, "libs-release", "com/example", "app.jar", "file-content")
 	r.ServeHTTP(w, req)
 
 	body := w.Body.String()
@@ -326,7 +346,7 @@ func TestUploadArtifact_RefreshFails(t *testing.T) {
 func TestUploadArtifact_PathTraversal(t *testing.T) {
 	r := setupTestRouter(&mockService{})
 	w := httptest.NewRecorder()
-	req := createMultipartRequest(t, "libs-release", "../../etc/passwd", "file.txt", "content")
+	req := createMultipartRequest(t, "libs-release", "../../etc", "passwd", "content")
 	r.ServeHTTP(w, req)
 
 	body := w.Body.String()

@@ -1,29 +1,45 @@
 {{define "content"}}
-<div class="row mb-3">
-    <div class="col-md-6">
-        <label for="repo-select" class="form-label">Repository</label>
-        <span hx-get="/repos" hx-trigger="load" hx-target="#repo-select" hx-swap="innerHTML"
-              hx-on::after-settle="document.getElementById('repo-select').dispatchEvent(new Event('change'))"></span>
-        <select id="repo-select" class="form-select"
-                hx-get="/artifacts" hx-trigger="change" hx-target="#artifact-list"
-                hx-include="this" name="repo">
-            <option value="">Loading repositories...</option>
-        </select>
+<div class="o-card">
+    <div class="o-card-header">
+        <span class="o-card-title">Repository</span>
     </div>
-    <div class="col-md-6 d-flex align-items-end">
-        <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#upload-section">
-            Upload Artifact
-        </button>
+    <div class="o-toolbar">
+        <div class="o-field o-field-grow">
+            <span hx-get="/repos?default={{urlEncode .DefaultRepo}}" hx-trigger="load" hx-target="#repo-select" hx-swap="innerHTML"></span>
+            <select id="repo-select" class="o-select" name="repo" style="width:100%">
+                <option value="">Loading repositories...</option>
+            </select>
+        </div>
+        <div class="o-field">
+            <button class="o-btn o-btn-primary"
+                    hx-get="/artifacts" hx-target="#artifact-list" hx-include="#repo-select">
+                <span class="htmx-indicator"><span class="o-spinner"></span></span>
+                Load Artifacts
+            </button>
+        </div>
+        <div class="o-field">
+            <button class="o-btn o-btn-secondary" data-bs-toggle="collapse" data-bs-target="#upload-section">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload
+            </button>
+        </div>
     </div>
 </div>
 
-<div id="upload-section" class="collapse mb-3">
+<div id="upload-section" class="collapse">
     {{template "upload_form" .}}
 </div>
 
 <div id="error-container"></div>
 
 <div id="artifact-list">
-    <p class="text-muted">Select a repository to view artifacts.</p>
+    <div class="o-card">
+        <div class="o-empty">
+            <div class="o-empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+            </div>
+            <div class="o-empty-text">Select a repository and click <strong>Load Artifacts</strong></div>
+        </div>
+    </div>
 </div>
 {{end}}

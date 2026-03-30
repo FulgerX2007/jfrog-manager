@@ -7,15 +7,21 @@ import (
 
 func clearEnv() {
 	_ = os.Unsetenv("JFROG_URL")
-	_ = os.Unsetenv("JFROG_API_KEY")
+	_ = os.Unsetenv("JFROG_USERNAME")
+	_ = os.Unsetenv("JFROG_TOKEN")
 	_ = os.Unsetenv("PORT")
 	_ = os.Unsetenv("TIMEOUT")
 }
 
+func setRequiredEnv() {
+	_ = os.Setenv("JFROG_URL", "https://example.jfrog.io")
+	_ = os.Setenv("JFROG_USERNAME", "user@example.com")
+	_ = os.Setenv("JFROG_TOKEN", "test-token")
+}
+
 func TestLoad_Defaults(t *testing.T) {
 	clearEnv()
-	_ = os.Setenv("JFROG_URL", "https://example.jfrog.io")
-	_ = os.Setenv("JFROG_API_KEY", "test-key")
+	setRequiredEnv()
 	defer clearEnv()
 
 	cfg, err := Load()
@@ -33,7 +39,8 @@ func TestLoad_Defaults(t *testing.T) {
 func TestLoad_EnvOverride(t *testing.T) {
 	clearEnv()
 	_ = os.Setenv("JFROG_URL", "https://custom.jfrog.io")
-	_ = os.Setenv("JFROG_API_KEY", "my-key")
+	_ = os.Setenv("JFROG_USERNAME", "admin@example.com")
+	_ = os.Setenv("JFROG_TOKEN", "my-token")
 	_ = os.Setenv("PORT", "9090")
 	_ = os.Setenv("TIMEOUT", "60")
 	defer clearEnv()
@@ -45,8 +52,11 @@ func TestLoad_EnvOverride(t *testing.T) {
 	if cfg.JFrogURL != "https://custom.jfrog.io" {
 		t.Errorf("expected custom URL, got %s", cfg.JFrogURL)
 	}
-	if cfg.JFrogAPIKey != "my-key" {
-		t.Errorf("expected custom API key, got %s", cfg.JFrogAPIKey)
+	if cfg.JFrogUsername != "admin@example.com" {
+		t.Errorf("expected custom username, got %s", cfg.JFrogUsername)
+	}
+	if cfg.JFrogToken != "my-token" {
+		t.Errorf("expected custom token, got %s", cfg.JFrogToken)
 	}
 	if cfg.Port != "9090" {
 		t.Errorf("expected port 9090, got %s", cfg.Port)
@@ -58,7 +68,8 @@ func TestLoad_EnvOverride(t *testing.T) {
 
 func TestLoad_MissingJFrogURL(t *testing.T) {
 	clearEnv()
-	_ = os.Setenv("JFROG_API_KEY", "test-key")
+	_ = os.Setenv("JFROG_USERNAME", "user@example.com")
+	_ = os.Setenv("JFROG_TOKEN", "token")
 	defer clearEnv()
 
 	_, err := Load()
@@ -67,21 +78,33 @@ func TestLoad_MissingJFrogURL(t *testing.T) {
 	}
 }
 
-func TestLoad_MissingJFrogAPIKey(t *testing.T) {
+func TestLoad_MissingJFrogUsername(t *testing.T) {
 	clearEnv()
 	_ = os.Setenv("JFROG_URL", "https://example.jfrog.io")
+	_ = os.Setenv("JFROG_TOKEN", "token")
 	defer clearEnv()
 
 	_, err := Load()
 	if err == nil {
-		t.Fatal("expected error for missing JFROG_API_KEY")
+		t.Fatal("expected error for missing JFROG_USERNAME")
+	}
+}
+
+func TestLoad_MissingJFrogToken(t *testing.T) {
+	clearEnv()
+	_ = os.Setenv("JFROG_URL", "https://example.jfrog.io")
+	_ = os.Setenv("JFROG_USERNAME", "user@example.com")
+	defer clearEnv()
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for missing JFROG_TOKEN")
 	}
 }
 
 func TestLoad_InvalidTimeout(t *testing.T) {
 	clearEnv()
-	_ = os.Setenv("JFROG_URL", "https://example.jfrog.io")
-	_ = os.Setenv("JFROG_API_KEY", "test-key")
+	setRequiredEnv()
 	_ = os.Setenv("TIMEOUT", "not-a-number")
 	defer clearEnv()
 
@@ -93,8 +116,7 @@ func TestLoad_InvalidTimeout(t *testing.T) {
 
 func TestLoad_ZeroTimeout(t *testing.T) {
 	clearEnv()
-	_ = os.Setenv("JFROG_URL", "https://example.jfrog.io")
-	_ = os.Setenv("JFROG_API_KEY", "test-key")
+	setRequiredEnv()
 	_ = os.Setenv("TIMEOUT", "0")
 	defer clearEnv()
 
@@ -106,8 +128,7 @@ func TestLoad_ZeroTimeout(t *testing.T) {
 
 func TestLoad_NegativeTimeout(t *testing.T) {
 	clearEnv()
-	_ = os.Setenv("JFROG_URL", "https://example.jfrog.io")
-	_ = os.Setenv("JFROG_API_KEY", "test-key")
+	setRequiredEnv()
 	_ = os.Setenv("TIMEOUT", "-5")
 	defer clearEnv()
 

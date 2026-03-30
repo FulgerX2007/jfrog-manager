@@ -27,7 +27,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	h := handlers.NewHandler(client, tmpl)
+	h := handlers.NewHandler(client, tmpl, cfg.DefaultRepo)
 	r := setupRouter(h)
 
 	slog.Info("starting server", "port", cfg.Port)
@@ -39,12 +39,13 @@ func main() {
 
 func setupRouter(h handlers.Handler) *gin.Engine {
 	r := gin.Default()
-	r.MaxMultipartMemory = 50 << 20 // 50 MB
+	r.MaxMultipartMemory = 500 << 20 // 500 MB
 
 	r.GET("/", h.Index)
 	r.GET("/repos", h.ListRepos)
 	r.GET("/artifacts", h.ListArtifacts)
 	r.POST("/artifacts/upload", h.UploadArtifact)
+	r.POST("/artifacts/bulk-delete", h.BulkDeleteArtifacts)
 	r.DELETE("/artifacts", h.DeleteArtifact)
 	r.GET("/xray", h.GetXray)
 

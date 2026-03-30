@@ -69,7 +69,7 @@ func TestLayoutRenders(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.ExecuteTemplate(&buf, "layout", nil)
+	err = tmpl.ExecuteTemplate(&buf, "layout", map[string]any{"DefaultRepo": ""})
 	if err != nil {
 		t.Fatalf("failed to execute layout: %v", err)
 	}
@@ -197,8 +197,8 @@ func TestUploadFormRenders(t *testing.T) {
 	if err := tmpl.ExecuteTemplate(&buf, "upload_form", nil); err != nil {
 		t.Fatalf("failed to render upload_form: %v", err)
 	}
-	if !bytes.Contains(buf.Bytes(), []byte("multipart/form-data")) {
-		t.Error("upload form missing multipart encoding")
+	if !bytes.Contains(buf.Bytes(), []byte("uploadWithProgress")) {
+		t.Error("upload form missing progress upload handler")
 	}
 }
 

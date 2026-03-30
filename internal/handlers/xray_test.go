@@ -21,7 +21,7 @@ func setupXrayTestRouter(mock *mockService) *gin.Engine {
 		panic("failed to load templates: " + err.Error())
 	}
 
-	h := NewHandler(mock, tmpl)
+	h := NewHandler(mock, tmpl, "")
 
 	r := gin.New()
 	r.GET("/xray", h.GetXray)

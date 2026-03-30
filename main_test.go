@@ -49,7 +49,7 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 		t.Fatalf("loading templates: %v", err)
 	}
 
-	h := handlers.NewHandler(mockService{}, tmpl)
+	h := handlers.NewHandler(mockService{}, tmpl, "")
 	return setupRouter(h)
 }
 

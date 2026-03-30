@@ -5,10 +5,18 @@ import (
 	"html/template"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"jfrog_manager/internal/models"
 )
+
+var severityOrder = map[string]int{
+	"critical": 0,
+	"high":     1,
+	"medium":   2,
+	"low":      3,
+}
 
 // FuncMap returns the custom template functions used by the application templates.
 func FuncMap() template.FuncMap {
@@ -30,6 +38,16 @@ func FuncMap() template.FuncMap {
 				}
 			}
 			return count
+		},
+		"sortBySeverity": func(issues []models.XrayIssue) []models.XrayIssue {
+			sorted := make([]models.XrayIssue, len(issues))
+			copy(sorted, issues)
+			sort.SliceStable(sorted, func(i, j int) bool {
+				oi := severityOrder[strings.ToLower(sorted[i].Severity)]
+				oj := severityOrder[strings.ToLower(sorted[j].Severity)]
+				return oi < oj
+			})
+			return sorted
 		},
 	}
 }
