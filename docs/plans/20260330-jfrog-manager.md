@@ -163,10 +163,10 @@
 - Create: `internal/handlers/xray.go`
 - Create: `internal/handlers/xray_test.go`
 
-- [ ] Implement `GetXray()` — read `repo` + `path` params, call client `GetXraySummary()`, render `xray_panel.html` fragment
-- [ ] Handle Xray unavailable: render panel with "Xray not configured or artifact not indexed" message
-- [ ] Write tests for Xray handler (with vulnerabilities, empty, unavailable)
-- [ ] Run tests — must pass before next task
+- [x] Implement `GetXray()` — read `repo` + `path` params, call client `GetXraySummary()`, render `xray_panel.html` fragment
+- [x] Handle Xray unavailable: render panel with "Xray not configured or artifact not indexed" message
+- [x] Write tests for Xray handler (with vulnerabilities, empty, unavailable)
+- [x] Run tests — must pass before next task
 
 ### Task 10: Wire everything together in main.go
 
