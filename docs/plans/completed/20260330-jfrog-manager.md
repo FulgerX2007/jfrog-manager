@@ -194,8 +194,8 @@
 
 ### Task 12: [Final] Documentation
 
-- [ ] Create README.md with setup instructions, .env configuration, usage
-- [ ] Move this plan to `docs/plans/completed/`
+- [x] Create README.md with setup instructions, .env configuration, usage
+- [x] Move this plan to `docs/plans/completed/`
 
 ## Technical Details
 
