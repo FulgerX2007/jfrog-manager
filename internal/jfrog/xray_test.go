@@ -11,7 +11,7 @@ import (
 func TestGetXraySummary_WithVulnerabilities(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"artifacts": [{
 				"general": {
 					"name": "app-1.0.jar",
@@ -97,7 +97,7 @@ func TestGetXraySummary_WithVulnerabilities(t *testing.T) {
 func TestGetXraySummary_EmptyResults(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"artifacts":[{"general":{"name":"clean.jar"},"issues":[],"licenses":[]}]}`))
+		_, _ = w.Write([]byte(`{"artifacts":[{"general":{"name":"clean.jar"},"issues":[],"licenses":[]}]}`))
 	})
 	defer server.Close()
 
@@ -121,7 +121,7 @@ func TestGetXraySummary_EmptyResults(t *testing.T) {
 func TestGetXraySummary_XrayUnavailable404(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error":"Xray is not enabled"}`))
+		_, _ = w.Write([]byte(`{"error":"Xray is not enabled"}`))
 	})
 	defer server.Close()
 
@@ -139,7 +139,7 @@ func TestGetXraySummary_XrayUnavailable404(t *testing.T) {
 func TestGetXraySummary_XrayServerError(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal error"))
+		_, _ = w.Write([]byte("internal error"))
 	})
 	defer server.Close()
 
@@ -174,7 +174,7 @@ func TestGetXraySummary_ConnectionError(t *testing.T) {
 func TestGetXraySummary_MalformedJSON(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`not valid json`))
+		_, _ = w.Write([]byte(`not valid json`))
 	})
 	defer server.Close()
 

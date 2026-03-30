@@ -208,14 +208,14 @@ func createMultipartRequest(t *testing.T, repo, path, filename, content string) 
 	t.Helper()
 	body := &strings.Builder{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("repo", repo)
-	writer.WriteField("path", path)
+	_ = writer.WriteField("repo", repo)
+	_ = writer.WriteField("path", path)
 	part, err := writer.CreateFormFile("file", filename)
 	if err != nil {
 		t.Fatal(err)
 	}
-	part.Write([]byte(content))
-	writer.Close()
+	_, _ = part.Write([]byte(content))
+	_ = writer.Close()
 
 	req, _ := http.NewRequest(http.MethodPost, "/artifacts/upload", strings.NewReader(body.String()))
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -266,9 +266,9 @@ func TestUploadArtifact_MissingFile(t *testing.T) {
 
 	body := &strings.Builder{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("repo", "libs-release")
-	writer.WriteField("path", "some/path")
-	writer.Close()
+	_ = writer.WriteField("repo", "libs-release")
+	_ = writer.WriteField("path", "some/path")
+	_ = writer.Close()
 
 	req, _ := http.NewRequest(http.MethodPost, "/artifacts/upload", strings.NewReader(body.String()))
 	req.Header.Set("Content-Type", writer.FormDataContentType())

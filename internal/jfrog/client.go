@@ -88,7 +88,7 @@ func (c Client) ListArtifacts(repo string) ([]models.Artifact, error) {
 }
 
 func (c Client) UploadArtifact(repo, path string, reader io.Reader) error {
-	reqURL := c.baseURL + "/artifactory/" + url.PathEscape(repo) + "/" + url.PathEscape(path)
+	reqURL := c.baseURL + "/artifactory/" + url.PathEscape(repo) + "/" + escapePathSegments(path)
 	req, err := http.NewRequest(http.MethodPut, reqURL, reader)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
@@ -97,7 +97,7 @@ func (c Client) UploadArtifact(repo, path string, reader io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("uploading artifact: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, string(body))
@@ -106,7 +106,7 @@ func (c Client) UploadArtifact(repo, path string, reader io.Reader) error {
 }
 
 func (c Client) DeleteArtifact(repo, path string) error {
-	reqURL := c.baseURL + "/artifactory/" + url.PathEscape(repo) + "/" + url.PathEscape(path)
+	reqURL := c.baseURL + "/artifactory/" + url.PathEscape(repo) + "/" + escapePathSegments(path)
 	req, err := http.NewRequest(http.MethodDelete, reqURL, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
@@ -115,7 +115,7 @@ func (c Client) DeleteArtifact(repo, path string) error {
 	if err != nil {
 		return fmt.Errorf("deleting artifact: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("delete failed with status %d: %s", resp.StatusCode, string(body))
@@ -130,7 +130,7 @@ func (c Client) doAndReadBody(req *http.Request) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -142,4 +142,14 @@ func (c Client) doAndReadBody(req *http.Request) ([]byte, error) {
 	}
 
 	return respBody, nil
+}
+
+// escapePathSegments escapes each segment of a slash-separated path individually,
+// preserving the slash separators that JFrog Artifactory expects in URLs.
+func escapePathSegments(p string) string {
+	segments := strings.Split(p, "/")
+	for i, s := range segments {
+		segments[i] = url.PathEscape(s)
+	}
+	return strings.Join(segments, "/")
 }

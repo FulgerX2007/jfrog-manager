@@ -9,7 +9,7 @@ import (
 func TestListRepos_ParsesMultipleRepos(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[
+		_, _ = w.Write([]byte(`[
 			{"key":"libs-release","type":"local","packageType":"maven","description":"Release repo"},
 			{"key":"libs-snapshot","type":"local","packageType":"maven","description":"Snapshot repo"},
 			{"key":"docker-remote","type":"remote","packageType":"docker","description":"Docker Hub proxy"}
@@ -38,7 +38,7 @@ func TestListRepos_ParsesMultipleRepos(t *testing.T) {
 func TestListRepos_EmptyList(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	})
 	defer server.Close()
 
@@ -56,7 +56,7 @@ func TestListRepos_EmptyList(t *testing.T) {
 func TestListRepos_Unauthorized401(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"errors":[{"message":"Bad credentials"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Bad credentials"}]}`))
 	})
 	defer server.Close()
 
@@ -73,7 +73,7 @@ func TestListRepos_Unauthorized401(t *testing.T) {
 func TestListRepos_ServerError500(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error"))
+		_, _ = w.Write([]byte("internal server error"))
 	})
 	defer server.Close()
 
@@ -90,7 +90,7 @@ func TestListRepos_ServerError500(t *testing.T) {
 func TestListRepos_MalformedJSON(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`not valid json`))
+		_, _ = w.Write([]byte(`not valid json`))
 	})
 	defer server.Close()
 
@@ -107,7 +107,7 @@ func TestListRepos_MalformedJSON(t *testing.T) {
 func TestListArtifacts_ParsesFiles(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"uri": "https://example.com/artifactory/api/storage/my-repo",
 			"files": [
 				{"uri":"/com/example/app-1.0.jar","size":12345,"lastModified":"2025-01-15T10:30:00.000Z","folder":false},
@@ -152,7 +152,7 @@ func TestListArtifacts_ParsesFiles(t *testing.T) {
 func TestListArtifacts_EmptyRepo(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"files":[]}`))
+		_, _ = w.Write([]byte(`{"files":[]}`))
 	})
 	defer server.Close()
 
@@ -170,7 +170,7 @@ func TestListArtifacts_EmptyRepo(t *testing.T) {
 func TestListArtifacts_Unauthorized401(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"errors":[{"message":"Bad credentials"}]}`))
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Bad credentials"}]}`))
 	})
 	defer server.Close()
 
@@ -187,7 +187,7 @@ func TestListArtifacts_Unauthorized401(t *testing.T) {
 func TestListArtifacts_ServerError500(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error"))
+		_, _ = w.Write([]byte("internal server error"))
 	})
 	defer server.Close()
 
@@ -204,7 +204,7 @@ func TestListArtifacts_ServerError500(t *testing.T) {
 func TestListArtifacts_MalformedJSON(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`not valid json`))
+		_, _ = w.Write([]byte(`not valid json`))
 	})
 	defer server.Close()
 
@@ -221,7 +221,7 @@ func TestListArtifacts_MalformedJSON(t *testing.T) {
 func TestListArtifacts_FileAtRoot(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"files":[{"uri":"/readme.txt","size":100,"lastModified":"2025-03-01T00:00:00.000Z","folder":false}]}`))
+		_, _ = w.Write([]byte(`{"files":[{"uri":"/readme.txt","size":100,"lastModified":"2025-03-01T00:00:00.000Z","folder":false}]}`))
 	})
 	defer server.Close()
 
@@ -247,7 +247,7 @@ func TestListRepos_CorrectHTTPMethod(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		method = r.Method
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	})
 	defer server.Close()
 

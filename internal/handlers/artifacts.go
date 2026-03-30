@@ -46,7 +46,7 @@ func (h Handler) ListRepos(c *gin.Context) {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	for _, repo := range repos {
-		c.Writer.WriteString(`<option value="` + template.HTMLEscapeString(repo.Key) + `">` + template.HTMLEscapeString(repo.Key) + ` (` + template.HTMLEscapeString(repo.PackageType) + `)</option>`)
+		_, _ = c.Writer.WriteString(`<option value="` + template.HTMLEscapeString(repo.Key) + `">` + template.HTMLEscapeString(repo.Key) + ` (` + template.HTMLEscapeString(repo.PackageType) + `)</option>`)
 	}
 }
 
@@ -91,7 +91,7 @@ func (h Handler) UploadArtifact(c *gin.Context) {
 		h.renderError(c, "File is required")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if err := h.service.UploadArtifact(repo, path, file); err != nil {
 		slog.Error("uploading artifact", "error", err)

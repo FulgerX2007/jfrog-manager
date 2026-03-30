@@ -68,7 +68,7 @@ func TestListRepos_CorrectURLAndAuth(t *testing.T) {
 		requestPath = r.URL.Path
 		authHeader = r.Header.Get("X-JFrog-Art-Api")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[{"key":"repo1","type":"local","packageType":"maven","description":"test repo"}]`))
+		_, _ = w.Write([]byte(`[{"key":"repo1","type":"local","packageType":"maven","description":"test repo"}]`))
 	})
 	defer server.Close()
 
@@ -94,7 +94,7 @@ func TestListArtifacts_CorrectURL(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		requestURL = r.URL.String()
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"files":[]}`))
+		_, _ = w.Write([]byte(`{"files":[]}`))
 	})
 	defer server.Close()
 
@@ -167,6 +167,52 @@ func TestDeleteArtifact_CorrectMethodAndPath(t *testing.T) {
 	}
 }
 
+func TestUploadArtifact_PreservesSlashesInPath(t *testing.T) {
+	var rawURL string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		rawURL = r.RequestURI
+		w.WriteHeader(http.StatusCreated)
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	err := client.UploadArtifact("my-repo", "com/example/app/1.0/app-1.0.jar", strings.NewReader("data"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.Contains(rawURL, "%2F") {
+		t.Errorf("path slashes should not be encoded as %%2F, got raw URL: %s", rawURL)
+	}
+	expected := "/artifactory/my-repo/com/example/app/1.0/app-1.0.jar"
+	if rawURL != expected {
+		t.Errorf("expected raw URL '%s', got '%s'", expected, rawURL)
+	}
+}
+
+func TestDeleteArtifact_PreservesSlashesInPath(t *testing.T) {
+	var rawURL string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		rawURL = r.RequestURI
+		w.WriteHeader(http.StatusNoContent)
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	err := client.DeleteArtifact("my-repo", "com/example/app/1.0/app-1.0.jar")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.Contains(rawURL, "%2F") {
+		t.Errorf("path slashes should not be encoded as %%2F, got raw URL: %s", rawURL)
+	}
+	expected := "/artifactory/my-repo/com/example/app/1.0/app-1.0.jar"
+	if rawURL != expected {
+		t.Errorf("expected raw URL '%s', got '%s'", expected, rawURL)
+	}
+}
+
 func TestGetXraySummary_CorrectURLAndBody(t *testing.T) {
 	var requestPath string
 	var requestMethod string
@@ -179,7 +225,7 @@ func TestGetXraySummary_CorrectURLAndBody(t *testing.T) {
 		b, _ := io.ReadAll(r.Body)
 		receivedBody = string(b)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"artifacts":[]}`))
+		_, _ = w.Write([]byte(`{"artifacts":[]}`))
 	})
 	defer server.Close()
 
@@ -228,7 +274,7 @@ func TestListRepos_ConnectionRefused(t *testing.T) {
 func TestUploadArtifact_Non2xxReturnsError(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("access denied"))
+		_, _ = w.Write([]byte("access denied"))
 	})
 	defer server.Close()
 
@@ -245,7 +291,7 @@ func TestUploadArtifact_Non2xxReturnsError(t *testing.T) {
 func TestDeleteArtifact_404ReturnsError(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("not found"))
+		_, _ = w.Write([]byte("not found"))
 	})
 	defer server.Close()
 
@@ -262,7 +308,7 @@ func TestDeleteArtifact_404ReturnsError(t *testing.T) {
 func TestDeleteArtifact_403ReturnsError(t *testing.T) {
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("forbidden"))
+		_, _ = w.Write([]byte("forbidden"))
 	})
 	defer server.Close()
 

@@ -34,7 +34,7 @@ func (c Client) GetXraySummary(repo, path string) (models.XraySummary, error) {
 	if err != nil {
 		return models.XraySummary{Available: false}, nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return models.XraySummary{Available: false}, nil
