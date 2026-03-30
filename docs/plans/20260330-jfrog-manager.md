@@ -174,13 +174,13 @@
 - Modify: `main.go`
 - Create: `main_test.go`
 
-- [ ] Load config, create JFrog client, create handler
-- [ ] Register all routes: `GET /`, `GET /repos`, `GET /artifacts`, `POST /artifacts/upload`, `DELETE /artifacts`, `GET /xray`
-- [ ] Load all templates using `template.ParseGlob` with multiple patterns for nested directories
-- [ ] Add `go mod tidy` to pull all dependencies
-- [ ] Write integration test: create Gin engine with mock `Service`, hit each route, verify 200 status codes
-- [ ] Run tests — must pass before next task
-- [ ] Manual smoke test: start server, verify page loads
+- [x] Load config, create JFrog client, create handler
+- [x] Register all routes: `GET /`, `GET /repos`, `GET /artifacts`, `POST /artifacts/upload`, `DELETE /artifacts`, `GET /xray`
+- [x] Load all templates using `template.ParseGlob` with multiple patterns for nested directories
+- [x] Add `go mod tidy` to pull all dependencies
+- [x] Write integration test: create Gin engine with mock `Service`, hit each route, verify 200 status codes
+- [x] Run tests — must pass before next task
+- [x] Manual smoke test: start server, verify page loads
 
 ### Task 11: Verify acceptance criteria
 

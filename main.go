@@ -5,6 +5,9 @@ import (
 	"os"
 
 	"jfrog_manager/internal/config"
+	"jfrog_manager/internal/handlers"
+	"jfrog_manager/internal/jfrog"
+	"jfrog_manager/internal/templates"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +19,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	r := setupRouter()
+	client := jfrog.NewClient(cfg)
+
+	tmpl, err := templates.Load("templates")
+	if err != nil {
+		slog.Error("failed to load templates", "error", err)
+		os.Exit(1)
+	}
+
+	h := handlers.NewHandler(client, tmpl)
+	r := setupRouter(h)
 
 	slog.Info("starting server", "port", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
@@ -25,12 +37,15 @@ func main() {
 	}
 }
 
-func setupRouter() *gin.Engine {
+func setupRouter(h handlers.Handler) *gin.Engine {
 	r := gin.Default()
 
-	r.GET("/", func(c *gin.Context) {
-		c.String(200, "JFrog Manager")
-	})
+	r.GET("/", h.Index)
+	r.GET("/repos", h.ListRepos)
+	r.GET("/artifacts", h.ListArtifacts)
+	r.POST("/artifacts/upload", h.UploadArtifact)
+	r.DELETE("/artifacts", h.DeleteArtifact)
+	r.GET("/xray", h.GetXray)
 
 	return r
 }
