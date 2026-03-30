@@ -115,11 +115,11 @@
 - Create: `internal/jfrog/xray_test.go`
 - Modify: `internal/models/models.go`
 
-- [ ] Add Xray models: `XraySummary` (artifacts array), `XrayArtifact` (general info, issues, licenses), `XrayIssue` (severity, description, CVEs, components)
-- [ ] Create `GetXraySummary(repo, path string)` method — `POST /xray/api/v1/summary/artifact` with `{"paths": ["default/{repo}/{path}"]}` (note: "default" is the standard JFrog service ID; document this assumption in code)
-- [ ] Handle graceful degradation: if Xray returns 404 or connection error, return empty summary with a "not available" flag
-- [ ] Write tests for Xray summary (success with vulnerabilities, empty results, Xray unavailable)
-- [ ] Run tests — must pass before next task
+- [x] Add Xray models: `XraySummary` (artifacts array), `XrayArtifact` (general info, issues, licenses), `XrayIssue` (severity, description, CVEs, components)
+- [x] Create `GetXraySummary(repo, path string)` method — `POST /xray/api/v1/summary/artifact` with `{"paths": ["default/{repo}/{path}"]}` (note: "default" is the standard JFrog service ID; document this assumption in code)
+- [x] Handle graceful degradation: if Xray returns 404 or connection error, return empty summary with a "not available" flag
+- [x] Write tests for Xray summary (success with vulnerabilities, empty results, Xray unavailable)
+- [x] Run tests — must pass before next task
 
 ### Task 7: HTML templates — layout and main page
 

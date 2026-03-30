@@ -184,7 +184,7 @@ func TestGetXraySummary_CorrectURLAndBody(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server.URL)
-	body, err := client.GetXraySummary("my-repo", "path/to/file.jar")
+	summary, err := client.GetXraySummary("my-repo", "path/to/file.jar")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -202,8 +202,11 @@ func TestGetXraySummary_CorrectURLAndBody(t *testing.T) {
 	if receivedBody != expectedBody {
 		t.Errorf("expected body '%s', got '%s'", expectedBody, receivedBody)
 	}
-	if string(body) != `{"artifacts":[]}` {
-		t.Errorf("unexpected response body: %s", string(body))
+	if !summary.Available {
+		t.Error("expected Available to be true")
+	}
+	if len(summary.Artifacts) != 0 {
+		t.Errorf("expected empty artifacts, got %d", len(summary.Artifacts))
 	}
 }
 

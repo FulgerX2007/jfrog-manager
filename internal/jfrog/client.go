@@ -122,17 +122,6 @@ func (c Client) DeleteArtifact(repo, path string) error {
 	return nil
 }
 
-func (c Client) GetXraySummary(repo, path string) ([]byte, error) {
-	url := c.baseURL + "/xray/api/v1/summary/artifact"
-	body := fmt.Sprintf(`{"paths":["default/%s/%s"]}`, repo, path)
-	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	return c.doAndReadBody(req)
-}
-
 // doAndReadBody executes a request and returns the response body bytes.
 // Returns an error for non-2xx status codes.
 func (c Client) doAndReadBody(req *http.Request) ([]byte, error) {
