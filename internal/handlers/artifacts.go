@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -75,6 +76,31 @@ func (h Handler) ListArtifacts(c *gin.Context) {
 
 // UploadArtifact handles multipart file upload and re-renders the artifact list.
 func (h Handler) UploadArtifact(c *gin.Context) {
+	const maxUploadSize = 50 << 20 // 50 MB
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadSize)
+
+	// Parse the multipart form explicitly so we can detect MaxBytesError
+	// before reading individual fields. Without this, PostForm triggers
+	// ParseMultipartForm which silently swallows the size error and returns
+	// empty strings, causing a misleading "required" validation message.
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			c.Status(http.StatusRequestEntityTooLarge)
+			c.Header("Content-Type", "text/html; charset=utf-8")
+			c.Header("HX-Retarget", "#error-container")
+			c.Header("HX-Reswap", "innerHTML")
+			data := map[string]any{"Error": "File exceeds the 50 MB upload limit"}
+			if tmplErr := h.tmpl.ExecuteTemplate(c.Writer, "error", data); tmplErr != nil {
+				slog.Error("rendering error template", "error", tmplErr)
+				c.String(http.StatusInternalServerError, "File too large")
+			}
+			return
+		}
+		h.renderError(c, "Failed to parse upload")
+		return
+	}
+
 	repo := c.PostForm("repo")
 	path := c.PostForm("path")
 	if repo == "" || path == "" {
@@ -142,7 +168,7 @@ func (h Handler) DeleteArtifact(c *gin.Context) {
 // It uses HX-Retarget to ensure errors display in the error container,
 // not inside whatever element triggered the request.
 func (h Handler) renderError(c *gin.Context, message string) {
-	c.Status(http.StatusOK)
+	c.Status(http.StatusUnprocessableEntity)
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("HX-Retarget", "#error-container")
 	c.Header("HX-Reswap", "innerHTML")

@@ -39,6 +39,7 @@ func main() {
 
 func setupRouter(h handlers.Handler) *gin.Engine {
 	r := gin.Default()
+	r.MaxMultipartMemory = 50 << 20 // 50 MB
 
 	r.GET("/", h.Index)
 	r.GET("/repos", h.ListRepos)

@@ -206,11 +206,19 @@ func TestFuncMap_CssID(t *testing.T) {
 	fm := FuncMap()
 	fn := fm["cssID"].(func(string) string)
 
-	if got := fn("com/example/app.jar"); got != "com-example-app-jar" {
-		t.Errorf("cssID(com/example/app.jar) = %q, want %q", got, "com-example-app-jar")
+	if got := fn("com/example/app.jar"); got != "com_sexample_sapp_djar" {
+		t.Errorf("cssID(com/example/app.jar) = %q, want %q", got, "com_sexample_sapp_djar")
 	}
 	if got := fn("simple"); got != "simple" {
 		t.Errorf("cssID(simple) = %q, want %q", got, "simple")
+	}
+	// Verify injectivity: paths that previously collided must now differ
+	if fn("a/b") == fn("a_sb") {
+		t.Errorf("cssID is not injective: a/b and a_sb both produce %q", fn("a/b"))
+	}
+	// Underscores in input must be escaped
+	if got := fn("a_b"); got != "a__b" {
+		t.Errorf("cssID(a_b) = %q, want %q", got, "a__b")
 	}
 }
 

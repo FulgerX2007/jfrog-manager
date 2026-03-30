@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"fmt"
 	"html/template"
 	"net/url"
 	"path/filepath"
@@ -15,7 +16,10 @@ func FuncMap() template.FuncMap {
 		"toLower":   strings.ToLower,
 		"urlEncode": url.QueryEscape,
 		"cssID": func(s string) string {
-			r := strings.NewReplacer("/", "-", ".", "-", " ", "-")
+			// Escape underscores first to ensure injectivity — without this,
+			// "a/b" and "a_s_b" would both map to "a_s_b".
+			s = strings.ReplaceAll(s, "_", "__")
+			r := strings.NewReplacer("/", "_s", ".", "_d", " ", "_w", "-", "_h")
 			return r.Replace(s)
 		},
 		"countBySeverity": func(issues []models.XrayIssue, severity string) int {
@@ -51,6 +55,13 @@ func Load(templateDir string) (*template.Template, error) {
 				return nil, err
 			}
 		}
+	}
+
+	// Verify at least one real template was loaded to catch misconfigured template directories
+	// early at startup rather than at runtime when ExecuteTemplate is called.
+	// template.New("") already creates one root template, so <= 1 means no files were parsed.
+	if len(tmpl.Templates()) <= 1 {
+		return nil, fmt.Errorf("no templates found in %q", templateDir)
 	}
 
 	return tmpl, nil

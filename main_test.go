@@ -127,8 +127,8 @@ func TestRouteArtifactsMissingRepo(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/artifacts", nil)
 	r.ServeHTTP(w, req)
 
-	// Handler renders error fragment with 200 status (htmx pattern)
-	if w.Code != http.StatusOK {
-		t.Errorf("GET /artifacts (no repo) status = %d, want %d", w.Code, http.StatusOK)
+	// Handler renders error fragment with 422 status for validation errors
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("GET /artifacts (no repo) status = %d, want %d", w.Code, http.StatusUnprocessableEntity)
 	}
 }

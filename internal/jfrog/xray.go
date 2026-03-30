@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"jfrog_manager/internal/models"
@@ -32,6 +33,7 @@ func (c Client) GetXraySummary(repo, path string) (models.XraySummary, error) {
 
 	resp, err := c.Do(req)
 	if err != nil {
+		slog.Warn("xray request failed", "error", err)
 		return models.XraySummary{Available: false}, nil
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -41,6 +43,7 @@ func (c Client) GetXraySummary(repo, path string) (models.XraySummary, error) {
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		slog.Warn("xray returned non-OK status", "status", resp.StatusCode)
 		return models.XraySummary{Available: false}, nil
 	}
 
