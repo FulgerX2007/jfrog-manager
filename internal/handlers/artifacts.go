@@ -236,6 +236,10 @@ func (h Handler) DownloadArtifact(c *gin.Context) {
 
 // BulkDeleteArtifacts deletes multiple artifacts and re-renders the artifact list.
 func (h Handler) BulkDeleteArtifacts(c *gin.Context) {
+	const maxBulkBodyBytes = 1 << 20 // 1 MiB — plenty for thousands of path strings
+	const maxBulkPaths = 500
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBulkBodyBytes)
+
 	var req struct {
 		Repo  string   `json:"repo"`
 		Paths []string `json:"paths"`
@@ -246,6 +250,10 @@ func (h Handler) BulkDeleteArtifacts(c *gin.Context) {
 	}
 	if req.Repo == "" || len(req.Paths) == 0 {
 		h.renderError(c, "Repository and at least one path are required")
+		return
+	}
+	if len(req.Paths) > maxBulkPaths {
+		h.renderError(c, "Too many paths in a single request")
 		return
 	}
 	if strings.Contains(req.Repo, "..") {

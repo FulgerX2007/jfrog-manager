@@ -1,6 +1,7 @@
 .env
 coverage.out
 jfrog_manager
+payload.json
 
 # ralphex progress logs
 .ralphex/progress/

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -488,6 +489,23 @@ func TestDownloadArtifact_ClientError(t *testing.T) {
 	body := w.Body.String()
 	if !strings.Contains(body, "Download failed") {
 		t.Error("expected download error message")
+	}
+}
+
+func TestBulkDelete_TooManyPaths(t *testing.T) {
+	paths := make([]string, 0, 501)
+	for range 501 {
+		paths = append(paths, "a/b")
+	}
+	body, _ := json.Marshal(map[string]any{"repo": "libs-release", "paths": paths})
+	r := setupTestRouter(&mockService{})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/artifacts/bulk-delete", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if !strings.Contains(w.Body.String(), "Too many paths") {
+		t.Errorf("expected 'Too many paths' error, got: %s", w.Body.String())
 	}
 }
 

@@ -28,19 +28,21 @@ type storageListFile struct {
 // Client implements the Service interface for JFrog Artifactory API calls.
 type Client struct {
 	httpClient       http.Client
-	uploadHTTPClient http.Client
+	streamHTTPClient http.Client
 	baseURL          string
 	username         string
 	token            string
 }
 
 // NewClient creates a new JFrog API client from the application config.
+// The streamHTTPClient has no overall timeout since uploads and downloads of
+// large artifacts can legitimately take longer than the short API timeout.
 func NewClient(cfg config.Config) Client {
 	return Client{
 		httpClient: http.Client{
 			Timeout: time.Duration(cfg.Timeout) * time.Second,
 		},
-		uploadHTTPClient: http.Client{},
+		streamHTTPClient: http.Client{},
 		baseURL:          strings.TrimRight(cfg.JFrogURL, "/"),
 		username:         cfg.JFrogUsername,
 		token:            cfg.JFrogToken,
@@ -53,10 +55,10 @@ func (c Client) Do(req *http.Request) (*http.Response, error) {
 	return c.httpClient.Do(req)
 }
 
-// doUpload executes an upload request without a fixed timeout.
-func (c Client) doUpload(req *http.Request) (*http.Response, error) {
+// doStream executes a long-running upload or download without a fixed timeout.
+func (c Client) doStream(req *http.Request) (*http.Response, error) {
 	req.SetBasicAuth(c.username, c.token)
-	return c.uploadHTTPClient.Do(req)
+	return c.streamHTTPClient.Do(req)
 }
 
 func (c Client) ListArtifacts(repo string) ([]models.Artifact, error) {
@@ -106,7 +108,7 @@ func (c Client) UploadArtifact(repo, path string, reader io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
-	resp, err := c.doUpload(req)
+	resp, err := c.doStream(req)
 	if err != nil {
 		return fmt.Errorf("uploading artifact: %w", err)
 	}
@@ -127,7 +129,7 @@ func (c Client) DownloadArtifact(repo, path string) (io.ReadCloser, int64, strin
 	if err != nil {
 		return nil, 0, "", fmt.Errorf("creating request: %w", err)
 	}
-	resp, err := c.Do(req)
+	resp, err := c.doStream(req)
 	if err != nil {
 		return nil, 0, "", fmt.Errorf("downloading artifact: %w", err)
 	}
