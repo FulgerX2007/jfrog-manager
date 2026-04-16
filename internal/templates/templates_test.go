@@ -110,6 +110,18 @@ func TestArtifactListRenders(t *testing.T) {
 		if !bytes.Contains([]byte(output), []byte("test.jar")) {
 			t.Error("artifact name not found in output")
 		}
+		// Regression: download href must be single-encoded. Previously we
+		// combined urlEncode with html/template's URL auto-escape, which
+		// produced %252F in place of %2F and made JFrog return 404.
+		if bytes.Contains(buf.Bytes(), []byte("%252F")) {
+			t.Error("download href is double-encoded (contains %252F)")
+		}
+		// And must not contain raw '/' in the query param — that would mean
+		// no encoding at all was applied.
+		if !bytes.Contains(buf.Bytes(), []byte("path=com%2ftest%2ftest.jar")) &&
+			!bytes.Contains(buf.Bytes(), []byte("path=com%2Ftest%2Ftest.jar")) {
+			t.Errorf("expected single-encoded path in href; got: %s", output)
+		}
 	})
 
 	t.Run("empty", func(t *testing.T) {
