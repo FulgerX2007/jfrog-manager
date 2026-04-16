@@ -3,5 +3,8 @@ coverage.out
 jfrog_manager
 payload.json
 
+# GoReleaser output
+dist/
+
 # ralphex progress logs
 .ralphex/progress/
