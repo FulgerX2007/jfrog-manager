@@ -26,6 +26,12 @@ type mockService struct {
 	xray      models.XraySummary
 	xrayErr   error
 
+	downloadBody        string
+	downloadContentType string
+	downloadErr         error
+	downloadedRepo      string
+	downloadedPath      string
+
 	uploadedRepo string
 	uploadedPath string
 	deletedRepo  string
@@ -56,6 +62,19 @@ func (m *mockService) GetXraySummary(repo, path string) (models.XraySummary, err
 	return m.xray, m.xrayErr
 }
 
+func (m *mockService) DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error) {
+	m.downloadedRepo = repo
+	m.downloadedPath = path
+	if m.downloadErr != nil {
+		return nil, 0, "", m.downloadErr
+	}
+	ct := m.downloadContentType
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+	return io.NopCloser(strings.NewReader(m.downloadBody)), int64(len(m.downloadBody)), ct, nil
+}
+
 func setupTestRouter(mock *mockService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 
@@ -72,6 +91,7 @@ func setupTestRouter(mock *mockService) *gin.Engine {
 	r.GET("/artifacts", h.ListArtifacts)
 	r.POST("/artifacts/upload", h.UploadArtifact)
 	r.POST("/artifacts/bulk-delete", h.BulkDeleteArtifacts)
+	r.GET("/artifacts/download", h.DownloadArtifact)
 	r.DELETE("/artifacts", h.DeleteArtifact)
 
 	return r
@@ -398,6 +418,76 @@ func TestDeleteArtifact_MissingParams(t *testing.T) {
 	body := w.Body.String()
 	if !strings.Contains(body, "Repository and path are required") {
 		t.Error("expected missing params error")
+	}
+}
+
+func TestDownloadArtifact_Success(t *testing.T) {
+	mock := &mockService{
+		downloadBody:        "binary-payload",
+		downloadContentType: "application/java-archive",
+	}
+	r := setupTestRouter(mock)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/artifacts/download?repo=libs-release&path=com/example/app.jar", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if w.Body.String() != "binary-payload" {
+		t.Errorf("expected body 'binary-payload', got %q", w.Body.String())
+	}
+	if mock.downloadedRepo != "libs-release" || mock.downloadedPath != "com/example/app.jar" {
+		t.Errorf("unexpected args: repo=%s path=%s", mock.downloadedRepo, mock.downloadedPath)
+	}
+	cd := w.Header().Get("Content-Disposition")
+	if !strings.Contains(cd, "attachment") || !strings.Contains(cd, "app.jar") {
+		t.Errorf("unexpected Content-Disposition: %s", cd)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/java-archive" {
+		t.Errorf("expected Content-Type 'application/java-archive', got %s", ct)
+	}
+	if cl := w.Header().Get("Content-Length"); cl != "14" {
+		t.Errorf("expected Content-Length 14, got %s", cl)
+	}
+}
+
+func TestDownloadArtifact_MissingParams(t *testing.T) {
+	r := setupTestRouter(&mockService{})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/artifacts/download?repo=libs-release", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Repository and path are required") {
+		t.Error("expected missing params error")
+	}
+}
+
+func TestDownloadArtifact_PathTraversal(t *testing.T) {
+	r := setupTestRouter(&mockService{})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/artifacts/download?repo=libs-release&path=../../etc/passwd", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Invalid repository or path") {
+		t.Error("expected path traversal rejection")
+	}
+}
+
+func TestDownloadArtifact_ClientError(t *testing.T) {
+	mock := &mockService{
+		downloadErr: errors.New("download failed with status 404"),
+	}
+	r := setupTestRouter(mock)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/artifacts/download?repo=libs-release&path=missing/file.jar", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Download failed") {
+		t.Error("expected download error message")
 	}
 }
 

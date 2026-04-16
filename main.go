@@ -46,6 +46,7 @@ func setupRouter(h handlers.Handler) *gin.Engine {
 	r.GET("/artifacts", h.ListArtifacts)
 	r.POST("/artifacts/upload", h.UploadArtifact)
 	r.POST("/artifacts/bulk-delete", h.BulkDeleteArtifacts)
+	r.GET("/artifacts/download", h.DownloadArtifact)
 	r.DELETE("/artifacts", h.DeleteArtifact)
 	r.GET("/xray", h.GetXray)
 

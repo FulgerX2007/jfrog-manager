@@ -222,6 +222,31 @@ func TestFuncMap_CssID(t *testing.T) {
 	}
 }
 
+func TestFuncMap_HumanSize(t *testing.T) {
+	fm := FuncMap()
+	fn := fm["humanSize"].(func(int64) string)
+
+	cases := []struct {
+		in   int64
+		want string
+	}{
+		{0, "0 B"},
+		{512, "512 B"},
+		{1023, "1023 B"},
+		{1024, "1.00 KiB"},
+		{1536, "1.50 KiB"},
+		{1024 * 1024, "1.00 MiB"},
+		{int64(1.5 * 1024 * 1024), "1.50 MiB"},
+		{1024 * 1024 * 1024, "1.00 GiB"},
+		{1024 * 1024 * 1024 * 1024, "1.00 TiB"},
+	}
+	for _, c := range cases {
+		if got := fn(c.in); got != c.want {
+			t.Errorf("humanSize(%d) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestFuncMap_UrlEncode(t *testing.T) {
 	fm := FuncMap()
 	fn := fm["urlEncode"].(func(string) string)

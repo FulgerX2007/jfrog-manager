@@ -24,14 +24,22 @@
             <tr>
                 <td><input type="checkbox" class="o-check artifact-checkbox" value="{{.Path}}" onchange="updateSelectedCount()"></td>
                 <td style="font-weight:600">{{.Name}}</td>
-                <td style="color:var(--grey-500);font-size:0.8125rem">{{.Path}}</td>
-                <td>{{.Size}}</td>
-                <td style="font-size:0.8125rem">{{.LastModified}}</td>
+                <td class="o-mono" style="color:var(--grey-500)">{{.Path}}</td>
+                <td class="o-num" title="{{.Size}} bytes">{{humanSize .Size}}</td>
+                <td class="o-num">{{.LastModified}}</td>
                 <td class="col-actions">
+                    <a class="o-btn o-btn-ghost o-btn-sm"
+                       href="/artifacts/download?repo={{urlEncode .Repo}}&path={{urlEncode .Path}}"
+                       download="{{.Name}}"
+                       title="Download artifact">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Download
+                    </a>
                     <button class="o-btn o-btn-ghost o-btn-sm"
-                            hx-get="/xray?repo={{urlEncode .Repo}}&path={{urlEncode .Path}}"
-                            hx-target="#xray-panel-{{cssID .Path}}"
-                            hx-swap="innerHTML"
+                            data-panel-id="xray-panel-{{cssID .Path}}"
+                            data-repo="{{.Repo}}"
+                            data-path="{{.Path}}"
+                            onclick="toggleXray(this)"
                             title="Scan with Xray">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                         Xray

@@ -18,11 +18,30 @@ var severityOrder = map[string]int{
 	"low":      3,
 }
 
+// humanSize formats a byte count using binary (IEC) units — KiB/MiB/GiB/… —
+// with three significant figures of precision and the unit abbreviated.
+// Examples: 0 → "0 B", 1023 → "1023 B", 1024 → "1.00 KiB", 1536 → "1.50 KiB".
+func humanSize(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for x := n / unit; x >= unit; x /= unit {
+		div *= unit
+		exp++
+	}
+	value := float64(n) / float64(div)
+	units := "KMGTPE"
+	return fmt.Sprintf("%.2f %ciB", value, units[exp])
+}
+
 // FuncMap returns the custom template functions used by the application templates.
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
 		"toLower":   strings.ToLower,
 		"urlEncode": url.QueryEscape,
+		"humanSize": humanSize,
 		"cssID": func(s string) string {
 			// Escape underscores first to ensure injectivity — without this,
 			// "a/b" and "a_s_b" would both map to "a_s_b".

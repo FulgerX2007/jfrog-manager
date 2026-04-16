@@ -225,6 +225,92 @@ func TestDeleteArtifact_PreservesSlashesInPath(t *testing.T) {
 	}
 }
 
+func TestDownloadArtifact_StreamsBodyAndHeaders(t *testing.T) {
+	var requestPath string
+	var requestMethod string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		requestPath = r.URL.Path
+		requestMethod = r.Method
+		w.Header().Set("Content-Type", "application/java-archive")
+		w.Header().Set("Content-Length", "9")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("jar-bytes"))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	body, length, ct, err := client.DownloadArtifact("my-repo", "com/example/app.jar")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer func() { _ = body.Close() }()
+
+	if requestMethod != http.MethodGet {
+		t.Errorf("expected GET, got %s", requestMethod)
+	}
+	if requestPath != "/artifactory/my-repo/com/example/app.jar" {
+		t.Errorf("unexpected path: %s", requestPath)
+	}
+	if ct != "application/java-archive" {
+		t.Errorf("expected content type 'application/java-archive', got '%s'", ct)
+	}
+	if length != 9 {
+		t.Errorf("expected length 9, got %d", length)
+	}
+	data, _ := io.ReadAll(body)
+	if string(data) != "jar-bytes" {
+		t.Errorf("expected body 'jar-bytes', got %q", string(data))
+	}
+}
+
+func TestDownloadArtifact_Non2xxReturnsError(t *testing.T) {
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("not found"))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	body, _, _, err := client.DownloadArtifact("repo", "missing/file.jar")
+	if err == nil {
+		if body != nil {
+			_ = body.Close()
+		}
+		t.Fatal("expected error for 404 response")
+	}
+	if body != nil {
+		t.Error("expected nil body on error")
+	}
+	if !strings.Contains(err.Error(), "404") {
+		t.Errorf("expected error to contain '404', got: %v", err)
+	}
+}
+
+func TestDownloadArtifact_PreservesSlashesInPath(t *testing.T) {
+	var rawURL string
+	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		rawURL = r.RequestURI
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data"))
+	})
+	defer server.Close()
+
+	client := newTestClient(server.URL)
+	body, _, _, err := client.DownloadArtifact("my-repo", "com/example/app/1.0/app-1.0.jar")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	_ = body.Close()
+
+	if strings.Contains(rawURL, "%2F") {
+		t.Errorf("path slashes should not be encoded, got %s", rawURL)
+	}
+	expected := "/artifactory/my-repo/com/example/app/1.0/app-1.0.jar"
+	if rawURL != expected {
+		t.Errorf("expected '%s', got '%s'", expected, rawURL)
+	}
+}
+
 func TestGetXraySummary_CorrectURLAndBody(t *testing.T) {
 	var requestPath string
 	var requestMethod string

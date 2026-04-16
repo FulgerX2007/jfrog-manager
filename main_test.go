@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"jfrog_manager/internal/handlers"
@@ -38,6 +39,11 @@ func (m mockService) DeleteArtifact(repo, path string) error {
 
 func (m mockService) GetXraySummary(repo, path string) (models.XraySummary, error) {
 	return models.XraySummary{Available: true}, nil
+}
+
+func (m mockService) DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error) {
+	body := "file-contents"
+	return io.NopCloser(strings.NewReader(body)), int64(len(body)), "application/octet-stream", nil
 }
 
 func setupTestRouter(t *testing.T) *gin.Engine {

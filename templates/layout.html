@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JFrog Manager</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script>
         document.addEventListener("htmx:beforeSwap", function(evt) {
@@ -38,6 +38,7 @@
             --warning: #FFB400;
             --warning-light: #FFF6E1;
             --font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+            --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
 
         * { box-sizing: border-box; }
@@ -48,6 +49,9 @@
             color: var(--grey-900);
             margin: 0;
             -webkit-font-smoothing: antialiased;
+            /* Subtle SVG noise texture — adds atmospheric depth without color shift */
+            background-image:
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
         }
 
         /* ── Navbar ── */
@@ -57,6 +61,8 @@
             position: sticky;
             top: 0;
             z-index: 1000;
+            /* Thin orange brand stripe anchoring the navbar */
+            box-shadow: inset 0 -2px 0 var(--orange-primary);
         }
         .o-navbar-inner {
             max-width: 1280px;
@@ -275,12 +281,31 @@
             padding: 0.625rem 0.75rem;
             border-bottom: 1px solid var(--grey-100);
             vertical-align: middle;
+            transition: background-color 0.12s ease;
         }
+        /* Softer hover: faint grey wash + left orange accent rail.
+           Less shouty than filling the full row with orange-light,
+           and the accent rail explicitly cues the row being acted on. */
         .o-table tbody tr:hover td {
-            background-color: var(--orange-light);
+            background-color: #FAFAFA;
+        }
+        .o-table tbody tr:hover td:first-child {
+            box-shadow: inset 3px 0 0 var(--orange-primary);
         }
         .o-table .col-checkbox { width: 40px; }
-        .o-table .col-actions { width: 140px; text-align: right; }
+        .o-table .col-actions { width: 260px; text-align: right; }
+        /* Monospace for paths and CVE codes — distinctive technical voice */
+        .o-mono {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-feature-settings: "ss01", "zero";
+        }
+        .o-num {
+            font-variant-numeric: tabular-nums;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--grey-700);
+        }
 
         /* ── Checkbox ── */
         .o-check {
@@ -401,15 +426,70 @@
         }
 
         /* ── Xray panel ── */
+        /* Visually attach the panel to its parent row via a left orange rail,
+           remove the floating margin so there is no dead space between row and panel. */
         .o-xray-panel td {
             padding: 0 !important;
             border-bottom: none !important;
         }
         .o-xray-inner {
-            padding: 0.75rem;
-            background-color: var(--grey-100);
-            border-radius: 0 0 8px 8px;
-            margin: 0 0.75rem 0.5rem 0.75rem;
+            padding: 0.85rem 1rem;
+            background-color: #FAFAFA;
+            border-left: 3px solid var(--orange-primary);
+            border-bottom: 1px solid var(--grey-300);
+            animation: o-xray-reveal 0.22s ease;
+        }
+        @keyframes o-xray-reveal {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Xray button active state — filled orange when its panel is open,
+           so second click reads clearly as "close". */
+        .o-btn[data-open="true"] {
+            background-color: var(--orange-primary);
+            color: var(--white);
+            border-color: var(--orange-primary);
+        }
+        .o-btn[data-open="true"]:hover {
+            background-color: var(--orange-dark);
+            border-color: var(--orange-dark);
+        }
+
+        /* ── Xray loading skeleton ── */
+        .o-xray-skeleton {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .o-skel-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        .o-skel-bar {
+            height: 10px;
+            border-radius: 4px;
+            background: linear-gradient(90deg,
+                var(--grey-100) 0%,
+                var(--orange-light) 50%,
+                var(--grey-100) 100%);
+            background-size: 200% 100%;
+            animation: o-shimmer 1.2s ease-in-out infinite;
+        }
+        .o-skel-pill {
+            width: 58px; height: 18px;
+            border-radius: 100px;
+            background: linear-gradient(90deg,
+                var(--grey-100) 0%,
+                var(--orange-light) 50%,
+                var(--grey-100) 100%);
+            background-size: 200% 100%;
+            animation: o-shimmer 1.2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes o-shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
 
         /* ── Vulnerability list ── */
@@ -445,12 +525,15 @@
             margin-bottom: 0.15rem;
         }
         .o-vuln-cves code {
+            font-family: var(--font-mono);
             font-size: 0.75rem;
-            background-color: var(--grey-100);
-            padding: 0.1rem 0.4rem;
+            background-color: var(--white);
+            border: 1px solid var(--grey-300);
+            padding: 0.12rem 0.45rem;
             border-radius: 4px;
-            color: var(--grey-700);
-            font-weight: 600;
+            color: var(--grey-900);
+            font-weight: 500;
+            letter-spacing: -0.01em;
         }
         .o-vuln-summary {
             font-size: 0.8125rem;
@@ -497,6 +580,23 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .o-card { animation: o-fadeIn 0.2s ease; }
+
+        /* Staggered reveal for first 10 artifact rows — one orchestrated
+           delight moment on list load, then rows settle quietly. */
+        .o-table tbody {
+            opacity: 0;
+            animation: o-fadeIn 0.26s ease forwards;
+        }
+        .o-table tbody:nth-child(1)  { animation-delay: 0.02s; }
+        .o-table tbody:nth-child(2)  { animation-delay: 0.05s; }
+        .o-table tbody:nth-child(3)  { animation-delay: 0.08s; }
+        .o-table tbody:nth-child(4)  { animation-delay: 0.11s; }
+        .o-table tbody:nth-child(5)  { animation-delay: 0.14s; }
+        .o-table tbody:nth-child(6)  { animation-delay: 0.17s; }
+        .o-table tbody:nth-child(7)  { animation-delay: 0.20s; }
+        .o-table tbody:nth-child(8)  { animation-delay: 0.23s; }
+        .o-table tbody:nth-child(9)  { animation-delay: 0.26s; }
+        .o-table tbody:nth-child(10) { animation-delay: 0.29s; }
 
         /* ── Responsive ── */
         @media (max-width: 768px) {
@@ -609,6 +709,45 @@
                         document.getElementById('error-container').innerHTML = html;
                     }
                 });
+            });
+        }
+
+        // Xray toggle — first click fetches+shows (with skeleton),
+        // second click collapses. Button gets data-open="true" while panel shown.
+        var XRAY_SKELETON = ''
+            + '<td colspan="6"><div class="o-xray-inner"><div class="o-xray-skeleton">'
+            +   '<div class="o-skel-row"><div class="o-skel-pill"></div><div class="o-skel-bar" style="flex:1;max-width:60%"></div></div>'
+            +   '<div class="o-skel-row"><div class="o-skel-pill"></div><div class="o-skel-bar" style="flex:1;max-width:45%"></div></div>'
+            +   '<div class="o-skel-row"><div class="o-skel-pill"></div><div class="o-skel-bar" style="flex:1;max-width:70%"></div></div>'
+            + '</div></div></td>';
+
+        function toggleXray(btn) {
+            var panelId = btn.getAttribute('data-panel-id');
+            var panel = document.getElementById(panelId);
+            if (!panel) return;
+            if (panel.innerHTML.trim() !== '') {
+                panel.innerHTML = '';
+                btn.removeAttribute('data-open');
+                return;
+            }
+            btn.setAttribute('data-open', 'true');
+            panel.innerHTML = XRAY_SKELETON;
+            var repo = btn.getAttribute('data-repo');
+            var path = btn.getAttribute('data-path');
+            var url = '/xray?repo=' + encodeURIComponent(repo) + '&path=' + encodeURIComponent(path);
+            fetch(url).then(function(resp) {
+                return resp.text().then(function(html) {
+                    if (resp.ok) {
+                        panel.innerHTML = html;
+                    } else {
+                        panel.innerHTML = '';
+                        btn.removeAttribute('data-open');
+                        document.getElementById('error-container').innerHTML = html;
+                    }
+                });
+            }).catch(function() {
+                panel.innerHTML = '';
+                btn.removeAttribute('data-open');
             });
         }
 

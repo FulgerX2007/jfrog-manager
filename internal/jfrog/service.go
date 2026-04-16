@@ -13,5 +13,6 @@ type Service interface {
 	ListArtifacts(repo string) ([]models.Artifact, error)
 	UploadArtifact(repo, path string, reader io.Reader) error
 	DeleteArtifact(repo, path string) error
+	DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error)
 	GetXraySummary(repo, path string) (models.XraySummary, error)
 }

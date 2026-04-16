@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"io"
 	"log/slog"
+	"mime"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 
 	"jfrog_manager/internal/jfrog"
@@ -188,6 +191,47 @@ func (h Handler) DeleteArtifact(c *gin.Context) {
 
 	// Return empty response — htmx will remove the row via hx-swap="outerHTML"
 	c.Status(http.StatusOK)
+}
+
+// DownloadArtifact streams an artifact from JFrog through to the client
+// with a Content-Disposition header so the browser saves it as a file.
+func (h Handler) DownloadArtifact(c *gin.Context) {
+	repo := c.Query("repo")
+	artifactPath := c.Query("path")
+	if repo == "" || artifactPath == "" {
+		h.renderError(c, "Repository and path are required")
+		return
+	}
+	if strings.Contains(repo, "..") || strings.Contains(artifactPath, "..") {
+		h.renderError(c, "Invalid repository or path")
+		return
+	}
+
+	body, length, contentType, err := h.service.DownloadArtifact(repo, artifactPath)
+	if err != nil {
+		slog.Error("downloading artifact", "error", err)
+		h.renderError(c, "Download failed")
+		return
+	}
+	defer func() { _ = body.Close() }()
+
+	filename := path.Base(artifactPath)
+	if filename == "" || filename == "." || filename == "/" {
+		filename = "download"
+	}
+
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	if length >= 0 {
+		c.Header("Content-Length", strconv.FormatInt(length, 10))
+	}
+	c.Status(http.StatusOK)
+	if _, err := io.Copy(c.Writer, body); err != nil {
+		slog.Error("streaming artifact", "error", err)
+	}
 }
 
 // BulkDeleteArtifacts deletes multiple artifacts and re-renders the artifact list.

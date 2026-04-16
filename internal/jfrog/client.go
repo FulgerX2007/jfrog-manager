@@ -118,6 +118,27 @@ func (c Client) UploadArtifact(repo, path string, reader io.Reader) error {
 	return nil
 }
 
+// DownloadArtifact fetches an artifact and returns the open response body,
+// content length (may be -1 when unknown), and content type. The caller must
+// close the returned ReadCloser.
+func (c Client) DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error) {
+	reqURL := c.baseURL + "/artifactory/" + url.PathEscape(repo) + "/" + escapePathSegments(path)
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("creating request: %w", err)
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("downloading artifact: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		return nil, 0, "", fmt.Errorf("download failed with status %d: %s", resp.StatusCode, string(body))
+	}
+	return resp.Body, resp.ContentLength, resp.Header.Get("Content-Type"), nil
+}
+
 func (c Client) DeleteArtifact(repo, path string) error {
 	reqURL := c.baseURL + "/artifactory/" + url.PathEscape(repo) + "/" + escapePathSegments(path)
 	req, err := http.NewRequest(http.MethodDelete, reqURL, nil)
