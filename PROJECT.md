@@ -25,7 +25,7 @@ here. Read this before changing code. Keep it current (see CONTRIBUTING.md).
   - `github.com/gin-gonic/gin` v1.12.0 — HTTP router and middleware (`go.mod`, `main.go`).
   - `github.com/joho/godotenv` v1.5.1 — loads `.env` (`go.mod`, `internal/config/config.go`).
   - Go standard library `html/template`, `net/http`, `log/slog` (`internal/templates/templates.go`, `internal/jfrog/client.go`, `main.go`).
-  - Browser side: htmx and Bootstrap 5, plus fonts, loaded from CDNs; all project CSS and client JS is inline in `templates/layout.html` (`README.md`, `CLAUDE.md`).
+  - Browser side: htmx and fonts loaded from CDNs, no CSS framework; all project CSS and client JS is inline in `templates/layout.html` (`README.md`, `CLAUDE.md`).
 - **Datastores:** None. The application has no database (`CLAUDE.md`); all state lives in the upstream Artifactory instance.
 - **Messaging / queues:** None. No messaging dependency appears in `go.mod`.
 - **External services:** JFrog Artifactory REST API and, optionally, JFrog Xray (`README.md`, `internal/jfrog/artifacts.go`, `internal/jfrog/xray.go`).
@@ -69,7 +69,7 @@ There is no `SECURITY.md` in the repository. The statements below come from `REA
   - Bulk-delete bodies are capped at 1 MiB and 500 paths (`internal/handlers/artifacts.go`).
   - Uploaded and downloaded filenames are reduced with `path.Base`; the download `Content-Disposition` is built with `mime.FormatMediaType` (`CLAUDE.md`).
   - Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: no-referrer` (`main.go`, `securityHeaders`).
-- **Dependencies / supply chain policy:** Dependencies are pinned in `go.mod` / `go.sum`. Browser assets (Bootstrap, htmx, fonts) are loaded from third-party CDNs (`CLAUDE.md`).
+- **Dependencies / supply chain policy:** Dependencies are pinned in `go.mod` / `go.sum`. Browser assets (htmx, fonts) are loaded from third-party CDNs (`CLAUDE.md`).
   - TODO: no dependency-update, vulnerability-scanning, or CDN-integrity policy is documented.
 - **Data classification & handling:** TODO: no data-classification policy exists in the repository.
 - **Vulnerability reporting:** TODO: no reporting process or contact exists in the repository.

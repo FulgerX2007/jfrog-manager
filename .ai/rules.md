@@ -37,7 +37,8 @@ point to the file that proves each one.
   interface, implemented on `Client`, and added to both `mockService`
   implementations (`main_test.go`, `internal/handlers/artifacts_test.go`).
 - A new route must be registered in `setupRouter` (`main.go`) and in the test
-  routers (`internal/handlers/artifacts_test.go`, `internal/handlers/xray_test.go`).
+  router of the handler's test file (`internal/handlers/artifacts_test.go`,
+  `internal/handlers/xray_test.go`, `internal/handlers/vulnerabilities_test.go`).
 - New template functions must be added to `FuncMap()` in
   `internal/templates/templates.go`; new partials must live under `templates/` or
   `templates/partials/`, the only two globs `Load` reads.

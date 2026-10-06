@@ -2,29 +2,30 @@
 <div class="o-upload-card">
     <form id="upload-form" onsubmit="uploadWithProgress(event)">
         <input type="hidden" id="upload-repo" name="repo">
-        <div class="o-toolbar">
+        <div class="o-upload-row">
+            <div class="o-upload-intro">
+                <strong>Upload an artifact</strong>
+                <span>Drop a file here, or choose one. Up to 500 MB.</span>
+            </div>
             <div class="o-field o-field-grow">
                 <label for="upload-folder" class="o-label">Folder (optional)</label>
-                <input type="text" class="o-input" id="upload-folder" name="folder"
-                       placeholder="e.g. com/example" style="width:100%">
+                <input type="text" class="o-input o-mono" id="upload-folder" name="folder" placeholder="e.g. com/example">
             </div>
             <div class="o-field o-field-grow">
                 <label for="upload-file" class="o-label">File</label>
-                <input type="file" class="o-input" id="upload-file" name="file" required style="width:100%">
+                <input type="file" class="o-input" id="upload-file" name="file" required>
             </div>
-            <div class="o-field">
-                <button type="submit" id="upload-btn" class="o-btn o-btn-primary">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Upload
-                </button>
-            </div>
+            <button type="submit" id="upload-btn" class="o-btn o-btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload
+            </button>
         </div>
-        <div id="upload-progress" style="display:none;margin-top:0.75rem">
-            <div style="display:flex;align-items:center;gap:0.75rem">
+        <div id="upload-progress" style="display:none;margin-top:12px">
+            <div style="display:flex;align-items:center;gap:12px">
                 <div class="o-progress-track">
                     <div id="upload-progress-bar" class="o-progress-fill" style="width:0%"></div>
                 </div>
-                <span id="upload-progress-text" style="font-size:0.8125rem;font-weight:600;color:var(--grey-700);min-width:3.5rem;text-align:right">0%</span>
+                <span id="upload-progress-text" class="o-num" style="font-weight:600;min-width:3.5rem;text-align:right">0%</span>
             </div>
         </div>
     </form>

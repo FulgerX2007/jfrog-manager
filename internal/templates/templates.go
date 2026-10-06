@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"jfrog_manager/internal/models"
 )
@@ -16,6 +17,15 @@ var severityOrder = map[string]int{
 	"high":     1,
 	"medium":   2,
 	"low":      3,
+}
+
+// severityRank orders severities from most to least severe; anything that is
+// not a known severity, including Xray's "Unknown", ranks last.
+func severityRank(severity string) int {
+	if rank, ok := severityOrder[strings.ToLower(severity)]; ok {
+		return rank
+	}
+	return len(severityOrder)
 }
 
 // humanSize formats a byte count using binary (IEC) units — KiB/MiB/GiB/… —
@@ -36,12 +46,27 @@ func humanSize(n int64) string {
 	return fmt.Sprintf("%.2f %ciB", value, units[exp])
 }
 
+// modifiedLayouts are the timestamp layouts Artifactory uses for lastModified.
+var modifiedLayouts = []string{time.RFC3339, "2006-01-02T15:04:05.000-0700"}
+
+// shortTime formats an Artifactory timestamp as "2006-01-02 15:04" in UTC.
+// Values that cannot be parsed are returned unchanged.
+func shortTime(s string) string {
+	for _, layout := range modifiedLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.UTC().Format("2006-01-02 15:04")
+		}
+	}
+	return s
+}
+
 // FuncMap returns the custom template functions used by the application templates.
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
 		"toLower":   strings.ToLower,
 		"urlEncode": url.QueryEscape,
 		"humanSize": humanSize,
+		"shortTime": shortTime,
 		"cssID": func(s string) string {
 			// Escape underscores first to ensure injectivity — without this,
 			// "a/b" and "a_s_b" would both map to "a_s_b".
@@ -62,9 +87,7 @@ func FuncMap() template.FuncMap {
 			sorted := make([]models.XrayIssue, len(issues))
 			copy(sorted, issues)
 			sort.SliceStable(sorted, func(i, j int) bool {
-				oi := severityOrder[strings.ToLower(sorted[i].Severity)]
-				oj := severityOrder[strings.ToLower(sorted[j].Severity)]
-				return oi < oj
+				return severityRank(sorted[i].Severity) < severityRank(sorted[j].Severity)
 			})
 			return sorted
 		},

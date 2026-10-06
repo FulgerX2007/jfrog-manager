@@ -1,73 +1,116 @@
 {{define "artifact_list"}}
-{{if .Artifacts}}
-<div class="o-card" style="padding-bottom:0">
-    <div class="o-bulk-bar">
-        <button id="bulk-delete-btn" class="o-btn o-btn-danger o-btn-sm" disabled onclick="bulkDelete()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-            Delete Selected (<span id="selected-count">0</span>)
+{{$repo := .Repo}}
+{{$list := .List}}
+<div class="o-layout">
+    <aside class="o-side" aria-label="Components">
+        <div class="o-side-title">Components</div>
+        <button type="button" class="o-side-btn" aria-pressed="{{if $list.Component}}false{{else}}true{{end}}"
+                hx-get="/artifacts?repo={{urlEncode $repo}}&amp;view={{$list.View}}" hx-target="#artifact-list">
+            <span>All components</span><span class="o-count">{{$list.InView}}</span>
         </button>
-    </div>
-    <div class="o-table-wrap">
-        <table class="o-table">
-            <thead>
-                <tr>
-                    <th class="col-checkbox"><input type="checkbox" class="o-check" id="select-all" onchange="toggleAll(this)"></th>
-                    <th>Name</th>
-                    <th>Path</th>
-                    <th>Size</th>
-                    <th>Last Modified</th>
-                    <th class="col-actions">Actions</th>
-                </tr>
-            </thead>
-            {{range .Artifacts}}
-            <tbody id="artifact-group-{{cssID .Path}}">
-            <tr>
-                <td><input type="checkbox" class="o-check artifact-checkbox" value="{{.Path}}" onchange="updateSelectedCount()"></td>
-                <td style="font-weight:600">{{.Name}}</td>
-                <td class="o-mono" style="color:var(--grey-500)">{{.Path}}</td>
-                <td class="o-num" title="{{.Size}} bytes">{{humanSize .Size}}</td>
-                <td class="o-num">{{.LastModified}}</td>
-                <td class="col-actions">
-                    <a class="o-btn o-btn-ghost o-btn-sm"
-                       href="/artifacts/download?repo={{.Repo}}&path={{.Path}}"
-                       download="{{.Name}}"
-                       title="Download artifact">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        Download
-                    </a>
-                    <button class="o-btn o-btn-ghost o-btn-sm"
-                            data-panel-id="xray-panel-{{cssID .Path}}"
-                            data-repo="{{.Repo}}"
-                            data-path="{{.Path}}"
-                            onclick="toggleXray(this)"
-                            title="Scan with Xray">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                        Xray
-                    </button>
-                    <button class="o-btn o-btn-ghost o-btn-sm" style="color:var(--error)"
-                            hx-delete="/artifacts?repo={{urlEncode .Repo}}&path={{urlEncode .Path}}"
-                            hx-confirm="Delete {{.Name}}?"
-                            hx-target="#artifact-group-{{cssID .Path}}"
-                            hx-swap="outerHTML"
-                            title="Delete artifact">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                    </button>
-                </td>
-            </tr>
-            <tr id="xray-panel-{{cssID .Path}}" class="o-xray-panel"></tr>
-            </tbody>
-            {{end}}
-        </table>
-    </div>
-</div>
-{{else}}
-<div class="o-card">
-    <div class="o-empty">
-        <div class="o-empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+        {{range $list.Components}}
+        <button type="button" class="o-side-btn" aria-pressed="{{.Active}}"
+                hx-get="/artifacts?repo={{urlEncode $repo}}&amp;view={{$list.View}}&amp;component={{urlEncode .Name}}" hx-target="#artifact-list">
+            <span>{{.Name}}</span><span class="o-count">{{.Count}}</span>
+        </button>
+        {{end}}
+    </aside>
+
+    <div class="o-content">
+        <div class="o-head">
+            <div>
+                <h1>Artifacts</h1>
+                <div class="o-sub">Packages: {{$list.Packages}} &middot; Files in the repository: {{$list.Files}}</div>
+            </div>
+            <div class="o-seg" role="group" aria-label="Versions shown">
+                <button type="button" class="o-seg-btn" aria-pressed="{{eq $list.View "latest"}}"
+                        hx-get="/artifacts?repo={{urlEncode $repo}}&amp;view=latest&amp;component={{urlEncode $list.Component}}" hx-target="#artifact-list">Latest versions</button>
+                <button type="button" class="o-seg-btn" aria-pressed="{{eq $list.View "all"}}"
+                        hx-get="/artifacts?repo={{urlEncode $repo}}&amp;view=all&amp;component={{urlEncode $list.Component}}" hx-target="#artifact-list">All files</button>
+            </div>
         </div>
-        <div class="o-empty-text">No artifacts found in this repository.</div>
+
+        {{if $list.Rows}}
+        <div class="o-toolbar">
+            <input type="search" class="o-input" id="artifact-filter" placeholder="Filter by name or path"
+                   aria-label="Filter artifacts" oninput="filterArtifacts(this.value)">
+            <div id="bulk-bar" class="o-bulk-bar" hidden>
+                <span><span id="selected-count">0</span> selected</span>
+                <button type="button" class="o-link" onclick="clearSelection()">Clear</button>
+                <button type="button" id="bulk-delete-btn" class="o-btn o-btn-danger o-btn-sm" disabled onclick="bulkDelete()">Delete selected</button>
+            </div>
+        </div>
+
+        <div class="o-table-card">
+            <div class="o-table-wrap">
+                <table class="o-table">
+                    <thead>
+                        <tr>
+                            <th class="col-checkbox"><input type="checkbox" class="o-check" id="select-all" aria-label="Select all" onchange="toggleAll(this)"></th>
+                            <th>Package</th>
+                            <th>Component</th>
+                            <th>Modified</th>
+                            <th>Size</th>
+                            <th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    {{range $list.Rows}}
+                    <tbody id="artifact-group-{{cssID .Path}}" class="o-row-group" data-filter="{{toLower .Path}}">
+                    <tr>
+                        <td class="col-checkbox"><input type="checkbox" class="o-check artifact-checkbox" value="{{.Path}}" aria-label="Select {{.Name}}" onchange="updateSelectedCount()"></td>
+                        <td>
+                            <div class="o-pkg">
+                                {{.Package}}
+                                {{if .Version}}<span class="o-ver">{{.Version}}</span>{{end}}
+                                {{if and .Latest (eq $list.View "all")}}<span class="o-tag">Latest</span>{{end}}
+                            </div>
+                            <div class="o-path">{{.Path}}</div>
+                            {{if and .Older (eq $list.View "latest")}}
+                            <button type="button" class="o-link"
+                                    hx-get="/artifacts?repo={{urlEncode $repo}}&amp;view=all&amp;component={{urlEncode .Component}}" hx-target="#artifact-list">+{{.Older}} older</button>
+                            {{end}}
+                        </td>
+                        <td>{{.Component}}</td>
+                        <td class="o-num">{{shortTime .LastModified}}</td>
+                        <td class="o-num" title="{{.Size}} bytes">{{humanSize .Size}}</td>
+                        <td class="col-actions">
+                            {{if .Latest}}
+                            <button type="button" class="o-btn o-btn-ghost o-btn-sm"
+                                    data-panel-id="xray-panel-{{cssID .Path}}"
+                                    data-repo="{{.Repo}}"
+                                    data-path="{{.Path}}"
+                                    onclick="toggleXray(this)"
+                                    title="Show Xray findings for this version">Xray</button>
+                            {{else}}
+                            <span class="o-muted" title="Vulnerabilities are reported for the latest version only">Older version</span>
+                            {{end}}
+                            <a class="o-btn o-btn-ghost o-btn-icon"
+                               href="/artifacts/download?repo={{.Repo}}&path={{.Path}}"
+                               download="{{.Name}}"
+                               aria-label="Download {{.Name}}" title="Download">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            </a>
+                            <button type="button" class="o-btn o-btn-ghost o-btn-icon o-btn-delete"
+                                    hx-delete="/artifacts?repo={{urlEncode .Repo}}&path={{urlEncode .Path}}"
+                                    hx-confirm="Delete {{.Name}}?"
+                                    hx-target="#artifact-group-{{cssID .Path}}"
+                                    hx-swap="outerHTML"
+                                    aria-label="Delete {{.Name}}" title="Delete">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr id="xray-panel-{{cssID .Path}}" class="o-xray-panel"></tr>
+                    </tbody>
+                    {{end}}
+                </table>
+            </div>
+        </div>
+        {{else}}
+        <div class="o-card">
+            <div class="o-empty">No artifacts found{{if $list.Component}} for this component{{else}} in this repository{{end}}.</div>
+        </div>
+        {{end}}
     </div>
 </div>
-{{end}}
 {{end}}

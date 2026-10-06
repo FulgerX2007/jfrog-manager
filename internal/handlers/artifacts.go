@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"jfrog_manager/internal/jfrog"
+	"jfrog_manager/internal/models"
+	"jfrog_manager/internal/report"
 
 	"github.com/gin-gonic/gin"
 )
@@ -84,12 +86,7 @@ func (h Handler) ListArtifacts(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	data := map[string]any{"Artifacts": artifacts}
-	if err := h.tmpl.ExecuteTemplate(c.Writer, "artifact_list", data); err != nil {
-		slog.Error("rendering artifact list", "error", err)
-	}
+	h.renderArtifactList(c, repo, c.Query("view"), c.Query("component"), artifacts)
 }
 
 // UploadArtifact handles multipart file upload and re-renders the artifact list.
@@ -162,12 +159,7 @@ func (h Handler) UploadArtifact(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	data := map[string]any{"Artifacts": artifacts}
-	if err := h.tmpl.ExecuteTemplate(c.Writer, "artifact_list", data); err != nil {
-		slog.Error("rendering artifact list", "error", err)
-	}
+	h.renderArtifactList(c, repo, "", "", artifacts)
 }
 
 // DeleteArtifact deletes an artifact and returns an empty response for htmx row removal.
@@ -285,9 +277,18 @@ func (h Handler) BulkDeleteArtifacts(c *gin.Context) {
 		return
 	}
 
+	h.renderArtifactList(c, req.Repo, "", "", artifacts)
+}
+
+// renderArtifactList renders the artifact list fragment for a repository,
+// narrowed to a view (latest versions or all files) and optionally a component.
+func (h Handler) renderArtifactList(c *gin.Context, repo, view, component string, artifacts []models.Artifact) {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "text/html; charset=utf-8")
-	data := map[string]any{"Artifacts": artifacts}
+	data := map[string]any{
+		"Repo": repo,
+		"List": report.BuildArtifactView(artifacts, view, component),
+	}
 	if err := h.tmpl.ExecuteTemplate(c.Writer, "artifact_list", data); err != nil {
 		slog.Error("rendering artifact list", "error", err)
 	}

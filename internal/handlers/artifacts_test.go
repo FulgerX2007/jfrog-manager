@@ -26,6 +26,7 @@ type mockService struct {
 	deleteErr error
 	xray      models.XraySummary
 	xrayErr   error
+	xrayPaths []string
 
 	downloadBody        string
 	downloadContentType string
@@ -60,6 +61,11 @@ func (m *mockService) DeleteArtifact(repo, path string) error {
 }
 
 func (m *mockService) GetXraySummary(repo, path string) (models.XraySummary, error) {
+	return m.xray, m.xrayErr
+}
+
+func (m *mockService) GetXraySummaries(repo string, paths []string) (models.XraySummary, error) {
+	m.xrayPaths = paths
 	return m.xray, m.xrayErr
 }
 
@@ -113,6 +119,9 @@ func TestIndex(t *testing.T) {
 	}
 	if !strings.Contains(body, "repo-select") {
 		t.Error("expected page to contain repo-select element")
+	}
+	if !strings.Contains(body, `hx-get="/vulnerabilities"`) {
+		t.Error("expected body to contain the Vulnerabilities button")
 	}
 }
 
@@ -521,5 +530,49 @@ func TestDeleteArtifact_ClientError(t *testing.T) {
 	body := w.Body.String()
 	if !strings.Contains(body, "Delete failed") {
 		t.Error("expected delete error message")
+	}
+}
+
+func versionedMock() *mockService {
+	return &mockService{artifacts: []models.Artifact{
+		{Name: "api-v1.1.x86_64.rpm", Path: "portal/api/api-v1.1.x86_64.rpm", LastModified: "2026-10-06T07:14:47.134Z", Repo: "rpm-stable"},
+		{Name: "api-v1.0.x86_64.rpm", Path: "portal/api/api-v1.0.x86_64.rpm", LastModified: "2026-09-01T07:00:00.000Z", Repo: "rpm-stable"},
+		{Name: "sso-v2.0.x86_64.rpm", Path: "portal/sso/sso-v2.0.x86_64.rpm", LastModified: "2026-09-01T07:00:00.000Z", Repo: "rpm-stable"},
+	}}
+}
+
+func TestListArtifacts_LatestViewByDefault(t *testing.T) {
+	r := setupTestRouter(versionedMock())
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/artifacts?repo=rpm-stable", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "api-v1.1.x86_64.rpm") || !strings.Contains(body, "sso-v2.0.x86_64.rpm") {
+		t.Error("expected the latest version of each package")
+	}
+	if strings.Contains(body, "api-v1.0.x86_64.rpm") {
+		t.Error("an older version must not be listed by default")
+	}
+	if !strings.Contains(body, "+1 older") {
+		t.Error("expected a link to the older version")
+	}
+}
+
+func TestListArtifacts_AllFilesOfOneComponent(t *testing.T) {
+	r := setupTestRouter(versionedMock())
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/artifacts?repo=rpm-stable&view=all&component=api", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "api-v1.1.x86_64.rpm") || !strings.Contains(body, "api-v1.0.x86_64.rpm") {
+		t.Error("expected every api version")
+	}
+	if strings.Contains(body, `value="portal/sso/sso-v2.0.x86_64.rpm"`) {
+		t.Error("artifacts of another component must not be listed")
+	}
+	if strings.Count(body, "toggleXray(this)") != 1 {
+		t.Errorf("Xray must be offered for the latest version only, got %d buttons", strings.Count(body, "toggleXray(this)"))
 	}
 }
