@@ -31,7 +31,7 @@ from the environment is used for every request (`internal/config/config.go`,
 
 ```mermaid
 flowchart TD
-    browser([Browser: htmx + Bootstrap UI])
+    browser([Browser: htmx UI])
 
     subgraph proc[jfrog_manager process]
         main[main.go: Gin router + securityHeaders]
@@ -47,7 +47,7 @@ flowchart TD
     env[/.env file or process environment/]
     artifactory[(JFrog Artifactory REST API)]
     xray[(JFrog Xray REST API)]
-    cdn[(CDNs: jsdelivr, unpkg, Google Fonts)]
+    cdn[(CDNs: unpkg, Google Fonts)]
 
     browser -->|HTTP| main
     browser -->|CSS / JS / fonts| cdn
@@ -67,14 +67,15 @@ flowchart TD
 
 | Component | Responsibility | Source location |
 |-----------|----------------|-----------------|
-| Entry point and router | Defaults Gin to release mode when `GIN_MODE` is unset, loads config, builds the JFrog client, loads templates, registers the eight routes, sets `MaxMultipartMemory` to 32 MB and installs the `securityHeaders` middleware | `main.go` |
+| Entry point and router | Defaults Gin to release mode when `GIN_MODE` is unset, loads config, builds the JFrog client, loads templates, registers the ten routes, sets `MaxMultipartMemory` to 32 MB and installs the `securityHeaders` middleware | `main.go` |
 | Config | Loads `.env` via godotenv (falls back to process environment), validates required `JFROG_URL`, `JFROG_USERNAME`, `JFROG_TOKEN`, applies defaults for `PORT` (8080) and `TIMEOUT` (30 s), reads optional `DEFAULT_REPO` | `internal/config/config.go` |
 | HTTP handlers | `Handler` struct (`service`, `tmpl`, `defaultRepo`); validates query/form/JSON input, enforces size limits, calls the service, renders HTML fragments, and maps failures to the `error` fragment via `renderError` | `internal/handlers/artifacts.go`, `internal/handlers/xray.go` |
-| Service interface | `jfrog.Service` — `ListRepos`, `ListArtifacts`, `UploadArtifact`, `DeleteArtifact`, `DownloadArtifact`, `GetXraySummary`; the seam handlers depend on, declared "for testability" | `internal/jfrog/service.go` |
+| Service interface | `jfrog.Service` — `ListRepos`, `ListArtifacts`, `UploadArtifact`, `DeleteArtifact`, `DownloadArtifact`, `GetXraySummary`, `GetXraySummaries`; the seam handlers depend on, declared "for testability" | `internal/jfrog/service.go` |
 | JFrog client | `Client` implementing `Service`; holds two `http.Client`s (one with the configured timeout, one without for streaming), injects HTTP Basic auth, builds and escapes upstream URLs, parses JSON responses | `internal/jfrog/client.go`, `internal/jfrog/artifacts.go`, `internal/jfrog/xray.go` |
 | Models | Plain data structs shared by client, handlers and templates (repositories, artifacts, Xray summary and issues) | `internal/models/models.go` |
+| Report | Pure functions behind the artifact list and the vulnerability report: the list view model (package, version, component, latest flag, latest/all and component filters), latest artifact per package, one row per Xray issue with component and impact paths, scanned / not-scanned accounting, sorting, grouping by component, severity filtering, CSV with a formula-injection guard | `internal/report/` |
 | Template loader | `Load` globs `*.html` and `partials/*.html` under the given directory and fails at startup if none are found; `FuncMap` provides `toLower`, `urlEncode`, `humanSize`, `cssID`, `countBySeverity`, `sortBySeverity` | `internal/templates/templates.go` |
-| HTML templates | Named templates `layout`, `content`, `artifact_list`, `error`, `xray_panel`, `upload_form`; the page loads Bootstrap 5.3.3, htmx 2.0.4 and Google Fonts from CDNs and issues `fetch` calls for bulk delete | `templates/layout.html`, `templates/index.html`, `templates/partials/` |
+| HTML templates | Named templates `layout`, `content`, `artifact_list`, `error`, `xray_panel`, `vuln_report`, `upload_form`; the page loads htmx 2.0.4 and Google Fonts from CDNs and issues `fetch` calls for bulk delete | `templates/layout.html`, `templates/index.html`, `templates/partials/` |
 | Release pipeline | Tag-triggered GoReleaser build of cross-platform binaries | `.github/workflows/release.yml`, `.goreleaser.yaml` |
 
 Routes registered in `setupRouter` (`main.go`):
@@ -89,6 +90,8 @@ Routes registered in `setupRouter` (`main.go`):
 | GET | `/artifacts/download` | `DownloadArtifact` | Streamed artifact bytes with `Content-Disposition: attachment` |
 | DELETE | `/artifacts` | `DeleteArtifact` | Empty 200 body (htmx removes the row) |
 | GET | `/xray` | `GetXray` | `xray_panel` fragment |
+| GET | `/vulnerabilities` | `GetVulnerabilities` | `vuln_report` fragment: vulnerabilities in the latest version of each package |
+| GET | `/vulnerabilities/export` | `ExportVulnerabilities` | The same report as a CSV download |
 
 ## 3. Data flow
 
@@ -153,8 +156,7 @@ Nothing is stored by the application itself; Artifactory is the system of record
 | JFrog Artifactory — list artifacts | out | HTTP(S) REST, Basic auth, JSON response | `GET {JFROG_URL}/artifactory/api/storage/{repo}/?list&deep=1` (`internal/jfrog/client.go`) |
 | JFrog Artifactory — upload / download / delete | out | HTTP(S) REST, Basic auth, binary body | `PUT` / `GET` / `DELETE {JFROG_URL}/artifactory/{repo}/{path}`; upload and download use the no-timeout streaming client (`internal/jfrog/client.go`) |
 | JFrog Xray — artifact summary | out | HTTP(S) REST, Basic auth, JSON request and response | `POST {JFROG_URL}/xray/api/v1/summary/artifact` with body `{"paths":["default/{repo}/{path}"]}`; `default` is the hard-coded JFrog service ID (`internal/jfrog/xray.go`) |
-| Browser clients | in | HTTP, HTML responses | Eight routes listed in section 2; no OpenAPI spec exists (`main.go`) |
-| jsDelivr CDN | browser out | HTTPS | Bootstrap 5.3.3 CSS and JS bundle, loaded by the browser, not the server (`templates/layout.html`) |
+| Browser clients | in | HTTP, HTML responses | Ten routes listed in section 2; no OpenAPI spec exists (`main.go`) |
 | unpkg CDN | browser out | HTTPS | htmx 2.0.4 (`templates/layout.html`) |
 | Google Fonts | browser out | HTTPS | Source Sans 3 and IBM Plex Mono (`templates/layout.html`) |
 
@@ -170,7 +172,7 @@ not enforce HTTPS (`internal/config/config.go`, `internal/jfrog/client.go`).
   - Go modules: `github.com/gin-gonic/gin` v1.12.0 and `github.com/joho/godotenv`
     v1.5.1 are the only direct dependencies (`go.mod`).
   - JFrog Artifactory and JFrog Xray REST APIs (section 4).
-  - Browser-side CDNs: jsDelivr, unpkg, Google Fonts (`templates/layout.html`). The
+  - Browser-side CDNs: unpkg, Google Fonts (`templates/layout.html`). The
     UI depends on them being reachable from the user's browser.
   - The `templates/` directory on disk, resolved relative to the working directory
     (`templates.Load("templates")` in `main.go`). Templates are not embedded in the
@@ -237,7 +239,7 @@ not enforce HTTPS (`internal/config/config.go`, `internal/jfrog/client.go`).
     authenticating proxy in front.
   - jfrog_manager to JFrog: authenticated with a single service credential
     (`internal/jfrog/client.go`).
-  - Browser to third-party CDNs: scripts and styles are loaded from jsDelivr, unpkg
+  - Browser to third-party CDNs: scripts and styles are loaded from unpkg
     and Google Fonts without `integrity` attributes (`templates/layout.html`).
 - **AuthN / AuthZ flow:** there is no application-level authentication or
   authorization (`README.md`; no auth middleware in `main.go`). Every upstream

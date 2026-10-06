@@ -41,6 +41,10 @@ func (m mockService) GetXraySummary(repo, path string) (models.XraySummary, erro
 	return models.XraySummary{Available: true}, nil
 }
 
+func (m mockService) GetXraySummaries(repo string, paths []string) (models.XraySummary, error) {
+	return models.XraySummary{Available: true}, nil
+}
+
 func (m mockService) DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error) {
 	body := "file-contents"
 	return io.NopCloser(strings.NewReader(body)), int64(len(body)), "application/octet-stream", nil
@@ -123,6 +127,39 @@ func TestRouteGetXray(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("GET /xray status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+func TestRouteGetVulnerabilities(t *testing.T) {
+	r := setupTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/vulnerabilities?repo=libs-release", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("GET /vulnerabilities status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if !strings.Contains(w.Body.String(), "not scanned by Xray") {
+		t.Error("GET /vulnerabilities should report the artifact Xray returned nothing for")
+	}
+}
+
+func TestRouteExportVulnerabilities(t *testing.T) {
+	r := setupTestRouter(t)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/vulnerabilities/export?repo=libs-release", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("GET /vulnerabilities/export status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/csv") {
+		t.Errorf("GET /vulnerabilities/export Content-Type = %q, want text/csv", ct)
+	}
+	if w.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Error("GET /vulnerabilities/export missing security headers")
 	}
 }
 

@@ -5,8 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JFrog Manager</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script>
         document.addEventListener("htmx:beforeSwap", function(evt) {
@@ -19,611 +18,447 @@
     </script>
     <style>
         :root {
-            --orange-primary: #FF7900;
-            --orange-dark: #F16E00;
-            --orange-light: #FFF0E2;
-            --black: #000000;
-            --grey-900: #333333;
-            --grey-700: #595959;
-            --grey-500: #8F8F8F;
-            --grey-300: #CCCCCC;
-            --grey-100: #F6F6F6;
-            --white: #FFFFFF;
-            --success: #32C832;
-            --success-light: #E8F9E8;
-            --error: #CD3C14;
-            --error-light: #FCEAE6;
-            --info: #4BB4E6;
-            --info-light: #E5F5FC;
-            --warning: #FFB400;
-            --warning-light: #FFF6E1;
-            --font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
-            --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            --ground: #F3F4F6;
+            --surface: #FFFFFF;
+            --line: #E1E4EA;
+            --line-soft: #EEF0F3;
+            --line-strong: #C5CAD3;
+            --ink: #14181F;
+            --ink-2: #3A4250;
+            --muted: #5A6270;
+            --accent: #2743C7;
+            --accent-dark: #1B2F8F;
+            --accent-light: #E8ECFB;
+            --critical: #A61B1B;
+            --high: #B4470E;
+            --medium: #F5D25A;
+            --medium-ink: #3A2E00;
+            --low: #D6E4FB;
+            --low-ink: #173B7A;
+            --unknown: #E1E4EA;
+            --unknown-ink: #2B313B;
+            --error: #A61B1B;
+            --error-light: #FBE9E7;
+            --success: #1F6B45;
+            --success-light: #E4F2EA;
+            --warning: #B98900;
+            --warning-light: #FFF6DB;
+            --font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         }
 
         * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
 
         body {
             font-family: var(--font-family);
-            background-color: var(--grey-100);
-            color: var(--grey-900);
+            font-size: 14px;
+            line-height: 1.45;
+            background-color: var(--ground);
+            color: var(--ink);
             margin: 0;
             -webkit-font-smoothing: antialiased;
-            /* Subtle SVG noise texture — adds atmospheric depth without color shift */
-            background-image:
-                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
         }
+        h1, h2 { margin: 0; }
+        a { color: var(--accent); }
+        a:hover { color: var(--accent-dark); }
+        button, input, select { font: inherit; }
+        code { font-family: var(--font-mono); font-size: 0.75rem; }
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-        /* ── Navbar ── */
-        .o-navbar {
-            background-color: var(--black);
-            padding: 0 0;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            /* Thin orange brand stripe anchoring the navbar */
-            box-shadow: inset 0 -2px 0 var(--orange-primary);
+        /* ── Top bar ── */
+        .o-top {
+            background: var(--ink);
+            color: var(--surface);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 24px;
+            padding: 12px 32px;
         }
-        .o-navbar-inner {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 0 1.5rem;
+        .o-top :focus-visible { outline-color: var(--surface); }
+        .o-brand {
             display: flex;
             align-items: center;
-            height: 56px;
-            gap: 1rem;
-        }
-        .o-navbar-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
+            gap: 10px;
+            color: var(--surface);
+            font-weight: 700;
+            font-size: 16px;
             text-decoration: none;
         }
-        .o-navbar-logo {
-            width: 36px;
-            height: 36px;
-            background-color: var(--orange-primary);
+        .o-brand:hover { color: var(--surface); }
+        .o-repo { display: flex; align-items: center; gap: 8px; flex: 1 1 320px; min-width: 0; }
+        .o-repo label { font-size: 12px; color: #B9C0CC; text-transform: uppercase; letter-spacing: 0.06em; }
+        .o-repo-select {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: 420px;
+            height: 44px;
+            padding: 0 12px;
             border-radius: 8px;
-            display: flex;
+            border: 1px solid var(--ink-2);
+            background: #1F2530;
+            color: var(--surface);
+            font-family: var(--font-mono);
+            font-size: 13px;
+        }
+        .o-tabs { display: flex; gap: 4px; }
+        .o-tab {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-        }
-        .o-navbar-logo svg {
-            width: 20px;
-            height: 20px;
-            fill: var(--white);
-        }
-        .o-navbar-title {
-            font-size: 1.125rem;
-            font-weight: 700;
-            color: var(--white);
-            letter-spacing: -0.01em;
-        }
-        .o-navbar-subtitle {
-            font-size: 0.75rem;
-            color: var(--grey-500);
-            font-weight: 400;
-            letter-spacing: 0.02em;
-        }
-
-        /* ── Main container ── */
-        .o-main {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 1.5rem;
-        }
-
-        /* ── Cards ── */
-        .o-card {
-            background: var(--white);
-            border-radius: 12px;
-            border: 1px solid var(--grey-300);
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        }
-        .o-card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-        }
-        .o-card-title {
-            font-size: 0.8125rem;
+            gap: 8px;
+            height: 44px;
+            padding: 0 16px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--surface);
             font-weight: 600;
-            color: var(--grey-700);
+            cursor: pointer;
+        }
+        .o-tab:hover { background: #1F2530; }
+        .o-tab[aria-current="page"] { background: var(--surface); color: var(--ink); }
+
+        /* ── Page ── */
+        .o-main {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px 32px 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .o-layout { display: flex; flex-wrap: wrap; gap: 24px; }
+        .o-side { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .o-side-title, .o-eyebrow {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
             text-transform: uppercase;
             letter-spacing: 0.06em;
         }
-
-        /* ── Toolbar ── */
-        .o-toolbar {
+        .o-side-title { margin-bottom: 6px; }
+        .o-side-btn {
             display: flex;
-            align-items: flex-end;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-        .o-field {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-        }
-        .o-field-grow { flex: 1; min-width: 200px; }
-        .o-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--grey-700);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        /* ── Inputs ── */
-        .o-select, .o-input {
-            font-family: var(--font-family);
-            font-size: 0.875rem;
-            height: 40px;
-            padding: 0 0.75rem;
-            border: 2px solid var(--grey-300);
-            border-radius: 8px;
-            background-color: var(--white);
-            color: var(--grey-900);
-            outline: none;
-            transition: border-color 0.15s ease;
-        }
-        .o-select:focus, .o-input:focus {
-            border-color: var(--orange-primary);
-            box-shadow: 0 0 0 3px var(--orange-light);
-        }
-        .o-select { cursor: pointer; padding-right: 2rem; }
-        input[type="file"].o-input {
-            padding: 0.4rem 0.75rem;
-            line-height: 1;
-        }
-
-        /* ── Buttons ── */
-        .o-btn {
-            font-family: var(--font-family);
-            font-size: 0.875rem;
-            font-weight: 600;
-            height: 40px;
-            padding: 0 1.25rem;
-            border-radius: 8px;
-            border: 2px solid transparent;
-            cursor: pointer;
-            display: inline-flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 0.4rem;
-            transition: all 0.15s ease;
-            white-space: nowrap;
-            text-decoration: none;
-        }
-        .o-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-        .o-btn-primary {
-            background-color: var(--orange-primary);
-            color: var(--white);
-            border-color: var(--orange-primary);
-        }
-        .o-btn-primary:hover:not(:disabled) {
-            background-color: var(--orange-dark);
-            border-color: var(--orange-dark);
-        }
-        .o-btn-secondary {
-            background-color: var(--white);
-            color: var(--grey-900);
-            border-color: var(--grey-300);
-        }
-        .o-btn-secondary:hover:not(:disabled) {
-            border-color: var(--grey-900);
-            background-color: var(--grey-100);
-        }
-        .o-btn-dark {
-            background-color: var(--black);
-            color: var(--white);
-        }
-        .o-btn-dark:hover:not(:disabled) {
-            background-color: var(--grey-900);
-        }
-        .o-btn-danger {
-            background-color: var(--error);
-            color: var(--white);
-            border-color: var(--error);
-        }
-        .o-btn-danger:hover:not(:disabled) {
-            background-color: #b83411;
-            border-color: #b83411;
-        }
-        .o-btn-ghost {
+            gap: 8px;
+            min-height: 44px;
+            padding: 0 12px;
+            border: 0;
+            border-radius: 8px;
             background: transparent;
-            color: var(--grey-700);
-            border-color: transparent;
-            padding: 0 0.6rem;
-        }
-        .o-btn-ghost:hover:not(:disabled) {
-            background-color: var(--grey-100);
-            color: var(--grey-900);
-        }
-        .o-btn-sm {
-            height: 32px;
-            padding: 0 0.75rem;
-            font-size: 0.8125rem;
-            border-radius: 6px;
-        }
-
-        /* ── Table ── */
-        .o-table-wrap {
-            overflow-x: auto;
-        }
-        .o-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 0.875rem;
-        }
-        .o-table thead th {
-            background-color: var(--grey-100);
-            color: var(--grey-700);
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            padding: 0.625rem 0.75rem;
-            border-bottom: 2px solid var(--grey-300);
+            color: var(--ink);
+            cursor: pointer;
             text-align: left;
-            position: sticky;
-            top: 0;
         }
-        .o-table thead th:first-child { border-radius: 8px 0 0 0; }
-        .o-table thead th:last-child { border-radius: 0 8px 0 0; }
-        .o-table tbody td {
-            padding: 0.625rem 0.75rem;
-            border-bottom: 1px solid var(--grey-100);
-            vertical-align: middle;
-            transition: background-color 0.12s ease;
-        }
-        /* Softer hover: faint grey wash + left orange accent rail.
-           Less shouty than filling the full row with orange-light,
-           and the accent rail explicitly cues the row being acted on. */
-        .o-table tbody tr:hover td {
-            background-color: #FAFAFA;
-        }
-        .o-table tbody tr:hover td:first-child {
-            box-shadow: inset 3px 0 0 var(--orange-primary);
-        }
-        .o-table .col-checkbox { width: 40px; }
-        .o-table .col-actions { width: 260px; text-align: right; }
-        /* Monospace for paths and CVE codes — distinctive technical voice */
-        .o-mono {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            font-feature-settings: "ss01", "zero";
-        }
-        .o-num {
-            font-variant-numeric: tabular-nums;
-            font-family: var(--font-mono);
-            font-size: 0.8125rem;
-            color: var(--grey-700);
-        }
+        .o-side-btn:hover { background: var(--line); }
+        .o-side-btn[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 600; }
+        .o-count { font-family: var(--font-mono); font-size: 12px; }
+        .o-content { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+        .o-report { display: flex; flex-direction: column; gap: 16px; max-width: 1280px; margin: 0 auto; width: 100%; }
+        .o-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+        .o-head h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+        .o-sub { color: var(--muted); margin-top: 2px; }
+        .o-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+        .o-toolbar .o-input { flex: 1 1 260px; }
 
-        /* ── Checkbox ── */
-        .o-check {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--orange-primary);
+        .o-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .o-card-title { font-size: 16px; font-weight: 700; }
+        .o-card-title span { font-weight: 500; color: var(--muted); }
+
+        /* ── Segmented control ── */
+        .o-seg { display: inline-flex; background: var(--line); border-radius: 10px; padding: 3px; }
+        .o-seg-btn {
+            min-height: 40px;
+            padding: 0 14px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--ink-2);
             cursor: pointer;
         }
+        .o-seg-btn[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; }
 
-        /* ── Badges ── */
-        .o-badge {
+        /* ── Form controls ── */
+        .o-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .o-field-grow { flex: 1 1 200px; }
+        .o-label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+        .o-select, .o-input {
+            height: 44px;
+            width: 100%;
+            padding: 0 12px;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--ink);
+        }
+        input[type="file"].o-input { padding: 9px 12px; }
+
+        .o-btn {
             display: inline-flex;
             align-items: center;
-            gap: 0.3rem;
-            padding: 0.2rem 0.6rem;
-            border-radius: 100px;
-            font-size: 0.75rem;
+            justify-content: center;
+            gap: 8px;
+            min-height: 44px;
+            padding: 0 16px;
+            border: 1px solid transparent;
+            border-radius: 8px;
             font-weight: 600;
-            letter-spacing: 0.01em;
-        }
-        .o-badge-critical { background-color: var(--error); color: var(--white); }
-        .o-badge-high { background-color: var(--orange-primary); color: var(--white); }
-        .o-badge-medium { background-color: var(--warning); color: var(--black); }
-        .o-badge-low { background-color: var(--info); color: var(--black); }
-
-        /* ── Severity badges (old class compat) ── */
-        .severity-critical { background-color: var(--error); color: var(--white); }
-        .severity-high { background-color: var(--orange-primary); color: var(--white); }
-        .severity-medium { background-color: var(--warning); color: var(--black); }
-        .severity-low { background-color: var(--info); color: var(--black); }
-
-        /* ── Alerts ── */
-        .o-alert {
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .o-alert-danger {
-            background-color: var(--error-light);
-            border: 1px solid var(--error);
-            color: var(--error);
-        }
-        .o-alert-info {
-            background-color: var(--info-light);
-            border: 1px solid var(--info);
-            color: var(--grey-900);
-        }
-        .o-alert-muted {
-            background-color: var(--grey-100);
-            border: 1px solid var(--grey-300);
-            color: var(--grey-500);
-        }
-        .o-alert-close {
-            margin-left: auto;
-            background: none;
-            border: none;
-            font-size: 1.25rem;
+            text-decoration: none;
             cursor: pointer;
-            color: inherit;
-            opacity: 0.6;
-            line-height: 1;
+            white-space: nowrap;
         }
-        .o-alert-close:hover { opacity: 1; }
+        .o-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .o-btn-primary { background: var(--accent); color: var(--surface); }
+        .o-btn-primary:hover:not(:disabled) { background: var(--accent-dark); color: var(--surface); }
+        .o-btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+        .o-btn-secondary:hover:not(:disabled) { background: var(--ground); color: var(--ink); }
+        .o-btn-danger { background: var(--error); color: var(--surface); }
+        .o-btn-danger:hover:not(:disabled) { background: #7A1515; }
+        .o-btn-ghost { background: transparent; color: var(--ink); }
+        .o-btn-ghost:hover:not(:disabled) { background: var(--ground); color: var(--ink); }
+        .o-btn-sm { min-height: 40px; padding: 0 12px; }
+        .o-btn-icon { width: 44px; padding: 0; }
+        .o-btn-delete { color: var(--error); }
+        .o-btn-delete:hover:not(:disabled) { color: var(--error); background: var(--error-light); }
+        .o-btn[data-open="true"] { background: var(--ink); color: var(--surface); }
+        .o-link {
+            border: 0;
+            background: none;
+            padding: 0;
+            min-height: 24px;
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: underline;
+        }
 
-        /* ── Upload card ── */
+        /* ── Upload ── */
         .o-upload-card {
-            background: var(--grey-100);
-            border: 2px dashed var(--grey-300);
+            background: var(--surface);
+            border: 1.5px dashed #9AA3B2;
             border-radius: 12px;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 1rem;
-            transition: border-color 0.15s ease;
+            padding: 16px 20px;
         }
-        .o-upload-card:hover {
-            border-color: var(--orange-primary);
-        }
+        .o-upload-card.o-drag { border-color: var(--accent); background: var(--accent-light); }
+        .o-upload-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+        .o-upload-intro { flex: 1 1 200px; min-width: 0; }
+        .o-upload-intro strong { display: block; }
+        .o-upload-intro span { color: var(--muted); font-size: 13px; }
+        .o-progress-track { flex: 1; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+        .o-progress-fill { height: 100%; background: var(--accent); transition: width 0.15s ease; }
+        .o-progress-fill.o-progress-done { background: var(--success); }
+        .o-progress-fill.o-progress-error { background: var(--error); }
 
-        /* ── Empty state ── */
-        .o-empty {
-            text-align: center;
-            padding: 3rem 1rem;
-            color: var(--grey-500);
+        /* ── Tables ── */
+        .o-table-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+        .o-table-wrap { overflow-x: auto; }
+        .o-table { width: 100%; min-width: 760px; border-collapse: collapse; }
+        .o-table thead th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: #F8F9FB;
+            border-bottom: 1px solid var(--line);
+            white-space: nowrap;
         }
-        .o-empty-icon {
-            font-size: 2.5rem;
-            margin-bottom: 0.75rem;
-            opacity: 0.4;
+        .o-table tbody td { padding: 10px 12px; border-top: 1px solid var(--line-soft); vertical-align: top; }
+        .o-table thead th:first-child, .o-table tbody td:first-child { padding-left: 16px; }
+        .o-table thead th:last-child, .o-table tbody td:last-child { padding-right: 16px; }
+        .o-table .col-checkbox { width: 34px; }
+        .o-table .col-actions { text-align: right; white-space: nowrap; padding-top: 6px; padding-bottom: 6px; }
+        .o-table .col-actions > * { vertical-align: middle; }
+        .o-pkg { font-weight: 600; }
+        .o-ver { font-family: var(--font-mono); font-weight: 500; font-size: 13px; color: var(--ink-2); }
+        .o-path, .o-mono { font-family: var(--font-mono); font-size: 12px; color: var(--muted); word-break: break-all; }
+        .o-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .o-muted { color: var(--muted); font-size: 13px; }
+        .o-tag {
+            background: var(--ink);
+            color: var(--surface);
+            border-radius: 6px;
+            padding: 1px 8px;
+            font-size: 12px;
+            font-weight: 600;
         }
-        .o-empty-text {
-            font-size: 0.9375rem;
-        }
+        .o-check { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--accent); }
 
-        /* ── Loading indicator ── */
-        .htmx-indicator {
-            display: none;
-        }
-        .htmx-request .htmx-indicator {
-            display: inline-block;
-        }
-        .htmx-request.htmx-indicator {
-            display: inline-block;
-        }
-        .o-spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid var(--grey-300);
-            border-top-color: var(--orange-primary);
-            border-radius: 50%;
-            animation: o-spin 0.6s linear infinite;
-            display: inline-block;
-        }
-        @keyframes o-spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* ── Xray panel ── */
-        /* Visually attach the panel to its parent row via a left orange rail,
-           remove the floating margin so there is no dead space between row and panel. */
-        .o-xray-panel td {
-            padding: 0 !important;
-            border-bottom: none !important;
-        }
-        .o-xray-inner {
-            padding: 0.85rem 1rem;
-            background-color: #FAFAFA;
-            border-left: 3px solid var(--orange-primary);
-            border-bottom: 1px solid var(--grey-300);
-            animation: o-xray-reveal 0.22s ease;
-        }
-        @keyframes o-xray-reveal {
-            from { opacity: 0; transform: translateY(-4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Xray button active state — filled orange when its panel is open,
-           so second click reads clearly as "close". */
-        .o-btn[data-open="true"] {
-            background-color: var(--orange-primary);
-            color: var(--white);
-            border-color: var(--orange-primary);
-        }
-        .o-btn[data-open="true"]:hover {
-            background-color: var(--orange-dark);
-            border-color: var(--orange-dark);
-        }
-
-        /* ── Xray loading skeleton ── */
-        .o-xray-skeleton {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        .o-skel-row {
-            display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
-        .o-skel-bar {
-            height: 10px;
-            border-radius: 4px;
-            background: linear-gradient(90deg,
-                var(--grey-100) 0%,
-                var(--orange-light) 50%,
-                var(--grey-100) 100%);
-            background-size: 200% 100%;
-            animation: o-shimmer 1.2s ease-in-out infinite;
-        }
-        .o-skel-pill {
-            width: 58px; height: 18px;
-            border-radius: 100px;
-            background: linear-gradient(90deg,
-                var(--grey-100) 0%,
-                var(--orange-light) 50%,
-                var(--grey-100) 100%);
-            background-size: 200% 100%;
-            animation: o-shimmer 1.2s ease-in-out infinite;
-            flex-shrink: 0;
-        }
-        @keyframes o-shimmer {
-            0%   { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        /* ── Vulnerability list ── */
-        .o-vuln-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1px;
-            background-color: var(--grey-300);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .o-vuln-row {
-            display: flex;
-            gap: 0.75rem;
-            padding: 0.6rem 0.75rem;
-            background-color: var(--white);
-            align-items: flex-start;
-            border-left: 3px solid transparent;
-        }
-        .o-vuln-row.o-vuln-critical { border-left-color: var(--error); }
-        .o-vuln-row.o-vuln-high { border-left-color: var(--orange-primary); }
-        .o-vuln-row.o-vuln-medium { border-left-color: var(--warning); }
-        .o-vuln-row.o-vuln-low { border-left-color: var(--info); }
-        .o-vuln-severity {
-            flex-shrink: 0;
-            width: 72px;
-        }
-        .o-vuln-body {
-            flex: 1;
-            min-width: 0;
-        }
-        .o-vuln-cves {
-            margin-bottom: 0.15rem;
-        }
-        .o-vuln-cves code {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            background-color: var(--white);
-            border: 1px solid var(--grey-300);
-            padding: 0.12rem 0.45rem;
-            border-radius: 4px;
-            color: var(--grey-900);
-            font-weight: 500;
-            letter-spacing: -0.01em;
-        }
-        .o-vuln-summary {
-            font-size: 0.8125rem;
-            color: var(--grey-700);
-            line-height: 1.4;
-        }
-
-        /* ── Bulk actions bar ── */
         .o-bulk-bar {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.5rem 0;
+            gap: 12px;
+            background: var(--error-light);
+            border: 1px solid #E3A9A2;
+            border-radius: 8px;
+            padding: 2px 2px 2px 14px;
+            color: #7A1515;
+            font-weight: 600;
         }
-        .o-bulk-count {
-            font-size: 0.8125rem;
-            color: var(--grey-700);
+        .o-bulk-bar .o-link { color: #7A1515; font-size: 14px; }
+
+        /* ── Badges ── */
+        .o-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+        .o-badge {
+            display: inline-block;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            background: var(--unknown);
+            color: var(--unknown-ink);
+        }
+        .o-badge-critical { background: var(--critical); color: var(--surface); }
+        .o-badge-high { background: var(--high); color: var(--surface); }
+        .o-badge-medium { background: var(--medium); color: var(--medium-ink); }
+        .o-badge-low { background: var(--low); color: var(--low-ink); }
+
+        /* ── Alerts ── */
+        .o-alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+        }
+        .o-alert > svg { flex: none; margin-top: 2px; }
+        .o-alert-danger { background: var(--error-light); border-color: #E3A9A2; color: #7A1515; }
+        .o-alert-info { background: var(--accent-light); border-color: #B9C4F0; color: var(--accent-dark); }
+        .o-alert-muted { background: var(--ground); color: var(--muted); }
+        .o-alert-warning { background: var(--warning-light); border-color: #E2C766; color: var(--medium-ink); }
+        .o-alert-warning summary { cursor: pointer; font-weight: 600; }
+        .o-alert-close {
+            margin-left: auto;
+            border: 0;
+            background: none;
+            color: inherit;
+            font-size: 20px;
+            line-height: 1;
+            min-width: 28px;
+            min-height: 28px;
+            cursor: pointer;
+        }
+        .o-not-scanned { margin: 8px 0 0; padding-left: 20px; font-size: 13px; }
+
+        .o-empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+
+        /* ── Spinner ── */
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
+        .o-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: o-spin 0.7s linear infinite;
+        }
+        @keyframes o-spin { to { transform: rotate(360deg); } }
+
+        /* ── Findings (Xray panel and report) ── */
+        .o-xray-panel > td { padding: 0 !important; border-top: 0 !important; }
+        .o-xray-inner { padding: 14px 16px; background: #F8F9FB; border-top: 1px solid var(--line-soft); }
+        .o-xray-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+        .o-xray-skeleton { display: flex; flex-direction: column; gap: 10px; }
+        .o-skel-row { display: flex; align-items: center; gap: 10px; }
+        .o-skel-bar, .o-skel-pill { height: 12px; border-radius: 6px; background: var(--line); animation: o-pulse 1.2s ease-in-out infinite; }
+        .o-skel-pill { width: 64px; height: 18px; }
+        @keyframes o-pulse { 50% { opacity: 0.45; } }
+        .o-findings { width: 100%; min-width: 720px; border-collapse: collapse; background: var(--surface); }
+        .o-findings th {
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: #F8F9FB;
+        }
+        .o-findings td { padding: 12px; border-top: 1px solid var(--line-soft); vertical-align: top; }
+        .o-findings th:first-child, .o-findings td:first-child { padding-left: 16px; }
+        .o-findings th:last-child, .o-findings td:last-child { padding-right: 16px; }
+        .o-findings .col-sev { width: 100px; }
+        .o-findings .col-id { width: 150px; }
+        .o-findings .col-pkg { width: 150px; }
+        .o-findings .col-src { width: 36%; }
+        .o-finding-ids code { display: block; white-space: nowrap; }
+        .o-impact { display: block; font-weight: 500; color: var(--ink); word-break: break-all; }
+        .o-impact + .o-impact, details .o-impact { margin-top: 4px; color: var(--ink-2); font-weight: 400; }
+        .o-more { margin-top: 4px; }
+        .o-more summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--accent); }
+        .o-ok { color: var(--success); font-weight: 600; }
+
+        /* ── Vulnerability report ── */
+        .o-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+        .o-tile {
+            text-align: left;
+            min-height: 72px;
+            padding: 10px 14px;
+            border: 2px solid var(--line);
+            border-radius: 10px;
+            background: var(--surface);
+            color: var(--ink);
+            cursor: pointer;
+        }
+        .o-tile:disabled { cursor: default; color: var(--muted); }
+        .o-tile[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+        .o-tile-count { display: block; font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+        .o-tile-label { font-size: 13px; font-weight: 600; }
+        .o-bar { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; margin-top: 14px; }
+        .o-bar > div { flex-basis: 0; }
+        .o-bar-critical { background: var(--critical); }
+        .o-bar-high { background: var(--high); }
+        .o-bar-medium { background: var(--medium); }
+        .o-bar-low { background: #8FB3F0; }
+        .o-bar-unknown { background: #9AA3B2; }
+        .o-group { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+        .o-group > summary {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 16px;
+            min-height: 60px;
+            padding: 10px 16px;
+            cursor: pointer;
+            list-style: none;
+        }
+        .o-group > summary::-webkit-details-marker { display: none; }
+        .o-group > summary::after { content: "Show"; font-weight: 600; color: var(--accent); }
+        .o-group[open] > summary::after { content: "Hide"; }
+        .o-group[open] > summary { border-bottom: 1px solid var(--line); }
+        .o-group-name { font-size: 17px; font-weight: 700; min-width: 96px; }
+        .o-group-files { flex: 1 1 220px; min-width: 0; }
+        .o-clean-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .o-clean {
+            background: var(--success-light);
+            color: #154A30;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-family: var(--font-mono);
+            font-size: 12px;
         }
 
-        /* ── Progress bar ── */
-        .o-progress-track {
-            flex: 1;
-            height: 8px;
-            background-color: var(--grey-300);
-            border-radius: 100px;
-            overflow: hidden;
-        }
-        .o-progress-fill {
-            height: 100%;
-            background-color: var(--orange-primary);
-            border-radius: 100px;
-            transition: width 0.15s ease;
-        }
-        .o-progress-fill.o-progress-done {
-            background-color: var(--success);
-        }
-        .o-progress-fill.o-progress-error {
-            background-color: var(--error);
-        }
-
-        /* ── Fade-in animation ── */
-        @keyframes o-fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .o-card { animation: o-fadeIn 0.2s ease; }
-
-        /* Staggered reveal for first 10 artifact rows — one orchestrated
-           delight moment on list load, then rows settle quietly. */
-        .o-table tbody {
-            opacity: 0;
-            animation: o-fadeIn 0.26s ease forwards;
-        }
-        .o-table tbody:nth-child(1)  { animation-delay: 0.02s; }
-        .o-table tbody:nth-child(2)  { animation-delay: 0.05s; }
-        .o-table tbody:nth-child(3)  { animation-delay: 0.08s; }
-        .o-table tbody:nth-child(4)  { animation-delay: 0.11s; }
-        .o-table tbody:nth-child(5)  { animation-delay: 0.14s; }
-        .o-table tbody:nth-child(6)  { animation-delay: 0.17s; }
-        .o-table tbody:nth-child(7)  { animation-delay: 0.20s; }
-        .o-table tbody:nth-child(8)  { animation-delay: 0.23s; }
-        .o-table tbody:nth-child(9)  { animation-delay: 0.26s; }
-        .o-table tbody:nth-child(10) { animation-delay: 0.29s; }
-
-        /* ── Responsive ── */
-        @media (max-width: 768px) {
-            .o-toolbar { flex-direction: column; align-items: stretch; }
-            .o-field-grow { min-width: auto; }
-            .o-navbar-subtitle { display: none; }
+        @media (max-width: 640px) {
+            .o-top { padding: 12px 16px; }
+            .o-main { padding: 16px 16px 32px; }
         }
     </style>
 </head>
 <body>
-    <nav class="o-navbar">
-        <div class="o-navbar-inner">
-            <a class="o-navbar-brand" href="/">
-                <div class="o-navbar-logo">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
-                </div>
-                <div>
-                    <div class="o-navbar-title">JFrog Manager</div>
-                    <div class="o-navbar-subtitle">Artifact Repository</div>
-                </div>
-            </a>
-        </div>
-    </nav>
-    <div class="o-main">
-        {{template "content" .}}
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {{template "content" .}}
     <script>
         // Sync upload form repo with dropdown selection
         function syncUploadRepo() {
@@ -652,12 +487,6 @@
                 syncUploadRepo();
             }
         });
-        document.addEventListener('shown.bs.collapse', function(e) {
-            if (e.target && e.target.id === 'upload-section') {
-                syncUploadRepo();
-                restoreFolder();
-            }
-        });
         document.addEventListener('htmx:afterSettle', function() {
             syncUploadRepo();
             restoreFolder();
@@ -676,6 +505,8 @@
             var btn = document.getElementById('bulk-delete-btn');
             if (countEl) countEl.textContent = checked.length;
             if (btn) btn.disabled = checked.length === 0;
+            var bar = document.getElementById('bulk-bar');
+            if (bar) bar.hidden = checked.length === 0;
 
             var all = document.querySelectorAll('.artifact-checkbox');
             var selectAll = document.getElementById('select-all');
@@ -683,6 +514,19 @@
                 selectAll.checked = checked.length === all.length;
                 selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
             }
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.artifact-checkbox').forEach(function(cb) { cb.checked = false; });
+            updateSelectedCount();
+        }
+
+        // Hide the rows whose path does not contain the typed text
+        function filterArtifacts(value) {
+            var q = value.trim().toLowerCase();
+            document.querySelectorAll('.o-row-group').forEach(function(group) {
+                group.hidden = q !== '' && group.getAttribute('data-filter').indexOf(q) < 0;
+            });
         }
 
         function bulkDelete() {
@@ -820,6 +664,60 @@
         function dismissAlert(el) {
             el.closest('.o-alert').remove();
         }
+
+        // Tabs: mark the active section and show the upload area only with the artifact list
+        function activeTab() {
+            return document.querySelector('.o-tab[aria-current="page"]');
+        }
+        document.addEventListener('click', function(e) {
+            var tab = e.target.closest ? e.target.closest('.o-tab') : null;
+            if (!tab) return;
+            document.querySelectorAll('.o-tab').forEach(function(t) { t.removeAttribute('aria-current'); });
+            tab.setAttribute('aria-current', 'page');
+            var upload = document.getElementById('upload-section');
+            if (upload) upload.hidden = tab.id !== 'tab-artifacts';
+        });
+        // Load the active section when the repository list arrives or the repository changes
+        function loadActiveTab() {
+            var repoSelect = document.getElementById('repo-select');
+            var tab = activeTab();
+            if (tab && repoSelect && repoSelect.value) htmx.trigger(tab, 'click');
+        }
+        document.addEventListener('htmx:afterSwap', function(e) {
+            if (!e.detail.target) return;
+            if (e.detail.target.id === 'repo-select') loadActiveTab();
+            // A fresh list or report replaces any earlier error message
+            if (e.detail.target.id === 'artifact-list') document.getElementById('error-container').innerHTML = '';
+        });
+        // Nothing to load until the repository list has arrived
+        document.addEventListener('htmx:beforeRequest', function(e) {
+            var el = e.detail.elt;
+            var repoSelect = document.getElementById('repo-select');
+            if (el && el.classList && el.classList.contains('o-tab') && repoSelect && !repoSelect.value) e.preventDefault();
+        });
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'repo-select') loadActiveTab();
+        });
+
+        // Drag a file onto the upload area to select it
+        document.addEventListener('dragover', function(e) {
+            var zone = e.target.closest ? e.target.closest('.o-upload-card') : null;
+            if (!zone) return;
+            e.preventDefault();
+            zone.classList.add('o-drag');
+        });
+        document.addEventListener('dragleave', function(e) {
+            var zone = e.target.closest ? e.target.closest('.o-upload-card') : null;
+            if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove('o-drag');
+        });
+        document.addEventListener('drop', function(e) {
+            var zone = e.target.closest ? e.target.closest('.o-upload-card') : null;
+            if (!zone) return;
+            e.preventDefault();
+            zone.classList.remove('o-drag');
+            var input = document.getElementById('upload-file');
+            if (input && e.dataTransfer && e.dataTransfer.files.length > 0) input.files = e.dataTransfer.files;
+        });
     </script>
 </body>
 </html>

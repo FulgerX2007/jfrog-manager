@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"jfrog_manager/internal/report"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,6 +28,13 @@ func (h Handler) GetXray(c *gin.Context) {
 		slog.Error("getting xray summary", "error", err)
 		h.renderError(c, "Failed to load Xray data")
 		return
+	}
+
+	// Show impact paths relative to the artifact, as the vulnerability report does.
+	for i, artifact := range summary.Artifacts {
+		for j, issue := range artifact.Issues {
+			summary.Artifacts[i].Issues[j].ImpactPaths = report.TrimImpactPaths(repo, path, issue.ImpactPaths)
+		}
 	}
 
 	c.Status(http.StatusOK)

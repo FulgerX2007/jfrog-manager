@@ -11,7 +11,13 @@ TODO: confirm that the project follows Semantic Versioning. The repository conta
 
 ### Added
 
+- Vulnerability report: a repository-wide list of Xray vulnerabilities in the latest version of each package, sortable by component and severity, showing the impact path of each finding, with CSV export (`GET /vulnerabilities`, `GET /vulnerabilities/export`).
+
 ### Changed
+
+- Redesigned the interface: repository picker and section tabs in the top bar, a component filter, a latest-versions / all-files switch and a text filter on the artifact list, and a vulnerability report grouped by component with severity filters. Bootstrap is no longer loaded.
+- The artifact list shows the latest version of each package by default (`view=all` lists every file), and Xray findings are offered for latest versions only.
+- The per-artifact Xray panel shows impact paths and Xray issue ids, and ranks unknown severities last.
 
 ### Fixed
 

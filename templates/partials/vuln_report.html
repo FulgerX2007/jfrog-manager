@@ -1,0 +1,137 @@
+{{define "vuln_report"}}
+{{$q := print "/vulnerabilities?repo=" (urlEncode .Repo)}}
+{{$sev := ""}}{{if .Severity}}{{$sev = print "&severity=" .Severity}}{{end}}
+<div class="o-report">
+    <div class="o-head">
+        <div>
+            <h1>Vulnerabilities</h1>
+            {{if .Available}}
+            <div class="o-sub">Findings: {{.Total}} &middot; Packages scanned: {{.Scanned}} &middot; Not scanned: {{len .NotScanned}}</div>
+            {{end}}
+        </div>
+        {{if and .Available .Shown}}
+        <a class="o-btn o-btn-primary"
+           href="/vulnerabilities/export?repo={{.Repo}}&sort={{.Sort}}&dir={{.Dir}}{{if .Severity}}&severity={{.Severity}}{{end}}"
+           title="Export the findings shown here as CSV">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+        </a>
+        {{end}}
+    </div>
+
+    {{if not .Available}}
+    <div class="o-alert o-alert-muted">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        Xray data could not be retrieved (Xray unavailable or the request timed out).
+    </div>
+    {{else}}
+    <div class="o-alert o-alert-info">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <div><strong>Latest version of each package only.</strong> Older files in this repository ({{.Excluded}}) are left out of this list and of the export.</div>
+    </div>
+
+    {{if .NotScanned}}
+    <div class="o-alert o-alert-warning">
+        <details>
+            <summary>Packages not scanned by Xray: {{len .NotScanned}} — they are not covered by this list</summary>
+            <ul class="o-not-scanned">
+                {{range .NotScanned}}
+                <li><code>{{.Path}}</code>{{if .Reason}} — {{.Reason}}{{end}}</li>
+                {{end}}
+            </ul>
+        </details>
+    </div>
+    {{end}}
+
+    <section class="o-card" aria-label="Findings by severity">
+        <div class="o-tiles">
+            {{range .Tiles}}
+            <button type="button" class="o-tile" aria-pressed="{{.Active}}" {{if not .Count}}disabled{{end}}
+                    hx-get="{{$q}}&amp;sort={{$.Sort}}&amp;dir={{$.Dir}}{{if not .Active}}&amp;severity={{.Key}}{{end}}" hx-target="#artifact-list"
+                    title="{{if .Active}}Show all severities{{else}}Show only {{.Label}}{{end}}">
+                <span class="o-tile-count">{{.Count}}</span>
+                <span class="o-tile-label">{{.Label}}{{if .Active}} &middot; only these{{end}}</span>
+            </button>
+            {{end}}
+        </div>
+        {{if .Total}}
+        <div class="o-bar" aria-hidden="true">
+            {{range .Tiles}}{{if .Count}}<div class="o-bar-{{.Key}}" style="flex-grow: {{.Count}}"></div>{{end}}{{end}}
+        </div>
+        {{end}}
+    </section>
+
+    {{if .Groups}}
+    <div class="o-toolbar">
+        <span class="o-eyebrow" id="order-label">Order by</span>
+        <div class="o-seg" role="group" aria-labelledby="order-label">
+            <button type="button" class="o-seg-btn" aria-pressed="{{eq .Sort "severity"}}"
+                    hx-get="{{$q}}&amp;sort=severity&amp;dir=desc{{$sev}}" hx-target="#artifact-list">Severity</button>
+            <button type="button" class="o-seg-btn" aria-pressed="{{eq .Sort "component"}}"
+                    hx-get="{{$q}}&amp;sort=component&amp;dir=asc{{$sev}}" hx-target="#artifact-list">Component</button>
+        </div>
+        <button type="button" class="o-btn o-btn-secondary" title="Reverse the order"
+                hx-get="{{$q}}&amp;sort={{.Sort}}&amp;dir={{if eq .Dir "asc"}}desc{{else}}asc{{end}}{{$sev}}" hx-target="#artifact-list">
+            {{if eq .Sort "component"}}{{if eq .Dir "asc"}}A to Z{{else}}Z to A{{end}}{{else}}{{if eq .Dir "desc"}}Most severe first{{else}}Least severe first{{end}}{{end}}
+        </button>
+        {{if .Severity}}
+        <button type="button" class="o-link" style="font-size:14px"
+                hx-get="{{$q}}&amp;sort={{.Sort}}&amp;dir={{.Dir}}" hx-target="#artifact-list">Show all severities</button>
+        {{end}}
+    </div>
+
+    {{range .Groups}}
+    <details class="o-group" open>
+        <summary>
+            <span class="o-group-name">{{.Component}}</span>
+            <span class="o-mono o-group-files">{{range $i, $a := .Artifacts}}{{if $i}}, {{end}}{{$a}}{{end}}</span>
+            <span class="o-badges">
+                {{if index .Counts "critical"}}<span class="o-badge o-badge-critical">{{index .Counts "critical"}} Critical</span>{{end}}
+                {{if index .Counts "high"}}<span class="o-badge o-badge-high">{{index .Counts "high"}} High</span>{{end}}
+                {{if index .Counts "medium"}}<span class="o-badge o-badge-medium">{{index .Counts "medium"}} Medium</span>{{end}}
+                {{if index .Counts "low"}}<span class="o-badge o-badge-low">{{index .Counts "low"}} Low</span>{{end}}
+                {{if index .Counts "unknown"}}<span class="o-badge">{{index .Counts "unknown"}} Unknown</span>{{end}}
+            </span>
+        </summary>
+        <div class="o-table-wrap">
+            <table class="o-findings">
+                <thead>
+                    <tr><th class="col-sev">Severity</th><th class="col-id">ID</th><th class="col-pkg">Package</th><th>Summary</th><th class="col-src">Source (impact path)</th></tr>
+                </thead>
+                <tbody>
+                {{range .Rows}}
+                <tr>
+                    <td><span class="o-badge o-badge-{{toLower .Severity}}">{{.Severity}}</span></td>
+                    <td class="o-finding-ids">{{if .CVEs}}{{range .CVEs}}<code>{{.}}</code>{{end}}{{else}}<code>{{.IssueID}}</code>{{end}}</td>
+                    <td title="{{.ArtifactPath}}">{{.Package}}</td>
+                    <td>{{.Summary}}</td>
+                    <td>{{template "impact_paths" .ImpactPaths}}</td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </details>
+    {{end}}
+    {{else}}
+    <div class="o-card">
+        <div class="o-empty">
+            {{if .Severity}}No findings of this severity.
+            <button type="button" class="o-link" style="font-size:14px"
+                    hx-get="{{$q}}&amp;sort={{.Sort}}&amp;dir={{.Dir}}" hx-target="#artifact-list">Show all severities</button>
+            {{else}}No vulnerabilities found in the scanned packages ({{.Scanned}}).{{end}}
+        </div>
+    </div>
+    {{end}}
+
+    {{if .Clean}}
+    <section class="o-card">
+        <h2 class="o-card-title">No findings <span>&middot; scanned and clean: {{len .Clean}}</span></h2>
+        <div class="o-clean-list">
+            {{range .Clean}}<span class="o-clean" title="{{.Path}}">{{.Name}}</span>{{end}}
+        </div>
+    </section>
+    {{end}}
+    {{end}}
+</div>
+{{end}}

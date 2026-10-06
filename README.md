@@ -2,7 +2,7 @@
 
 Web-based admin tool for managing JFrog Artifactory artifacts. Browse repositories, list/upload/download/delete artifacts (individually or in bulk), and view Xray vulnerability information through a clean web UI.
 
-Built with Go + Gin + htmx + Bootstrap 5 — server-rendered HTML with htmx partial swaps.
+Built with Go + Gin + htmx — server-rendered HTML with htmx partial swaps and a small hand-written stylesheet.
 
 ## Prerequisites
 
@@ -61,8 +61,10 @@ go run main.go
 - **List artifacts** — deep listing with name, path, human-readable size (KiB/MiB/GiB), and last modified date
 - **Upload artifacts** — multipart upload up to 500 MB with live progress bar; uploads >32 MB spill to disk instead of buffering in memory
 - **Download artifacts** — server-proxied streaming download; credentials never leave the server
+- **Latest versions or all files** — the artifact list shows the latest version of each package by default, with a switch to all files, a component filter (the first folder that differs between packages) and a text filter
 - **Delete artifacts** — individual delete with confirmation, or bulk delete via row checkboxes (capped at 500 paths per request)
-- **Xray vulnerabilities** — toggle a per-row panel showing severity badges (Critical/High/Medium/Low) and CVE details; loading skeleton during fetch; second click collapses the panel. Graceful fallback when Xray is unavailable or an artifact is unindexed.
+- **Vulnerability report** — every Xray vulnerability in the latest version of each package in the repository, and only those: older versions are left out. Findings are grouped by component (the first folder that differs between packages), can be ordered by severity or component and narrowed to one severity, show the impact path of each finding, and export as CSV. Packages Xray returned no data for are listed as "not scanned" instead of being counted as clean.
+- **Xray findings per artifact** — on the latest version of a package, toggle a per-row panel with severity badges, CVE or Xray issue ids, summaries and impact paths; loading skeleton during fetch; second click collapses the panel. Graceful fallback when Xray is unavailable or an artifact is unindexed.
 
 ## Routes
 
@@ -70,12 +72,14 @@ go run main.go
 |--------|----------------------------------|-----------------------------------------------------------------|
 | GET    | `/`                              | Main page                                                       |
 | GET    | `/repos`                         | htmx fragment — repository `<option>` list                      |
-| GET    | `/artifacts?repo=X`              | htmx fragment — artifact table                                  |
+| GET    | `/artifacts?repo=X&view=V&component=C` | htmx fragment — artifact list (`view`: `latest` (default) or `all`; `component` optional) |
 | POST   | `/artifacts/upload`              | Multipart upload (fields: `repo`, `folder`, `file`)             |
 | POST   | `/artifacts/bulk-delete`         | JSON body `{repo, paths[]}`; re-renders the list                |
 | GET    | `/artifacts/download?repo=X&path=Y` | Stream artifact with `Content-Disposition: attachment`       |
 | DELETE | `/artifacts?repo=X&path=Y`       | Delete a single artifact                                        |
 | GET    | `/xray?repo=X&path=Y`            | htmx fragment — Xray vulnerability panel                        |
+| GET    | `/vulnerabilities?repo=X&sort=S&dir=D&severity=K` | htmx fragment — vulnerability report for the latest version of each package, grouped by component (`sort`: `severity`\|`component`, `dir`: `asc`\|`desc`, optional `severity`: `critical`\|`high`\|`medium`\|`low`\|`unknown`) |
+| GET    | `/vulnerabilities/export?repo=X&sort=S&dir=D&severity=K` | The same findings as a CSV download |
 
 ## Security notes
 
@@ -101,13 +105,15 @@ jfrog_manager/
 │   ├── config/config.go             # Environment-based configuration
 │   ├── handlers/
 │   │   ├── artifacts.go             # List/Upload/Download/Delete/BulkDelete
+│   │   ├── vulnerabilities.go       # Vulnerability report fragment + CSV export
 │   │   └── xray.go                  # Xray vulnerability handler
 │   ├── jfrog/
 │   │   ├── client.go                # HTTP client with Basic auth + streaming client for up/downloads
 │   │   ├── service.go               # Service interface for testability
 │   │   ├── artifacts.go             # ListRepos
-│   │   └── xray.go                  # Xray summary client
-│   ├── models/models.go             # Repository, Artifact, Xray data structs
+│   │   └── xray.go                  # Xray summary client (single and batched)
+│   ├── models/models.go             # Repository, Artifact, Xray data structs, report row
+│   ├── report/                      # Latest-version selection, report rows, sorting, CSV
 │   └── templates/templates.go       # Template loading + helper funcs (humanSize, cssID, etc.)
 ├── templates/
 │   ├── layout.html                  # Base HTML + styles + JS
@@ -116,6 +122,7 @@ jfrog_manager/
 │       ├── artifact_list.html       # Artifact table rows
 │       ├── upload_form.html         # Upload form with progress bar
 │       ├── xray_panel.html          # Vulnerability display
+│       ├── vuln_report.html         # Repository-wide vulnerability report
 │       └── error.html               # Error alert
 ├── .env.example                     # Environment variable template
 └── go.mod

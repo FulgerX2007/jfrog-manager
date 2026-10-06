@@ -190,3 +190,38 @@ func TestGetXray_ClientError(t *testing.T) {
 		t.Error("expected error alert in response")
 	}
 }
+
+func TestGetXray_ShowsImpactPathInsideArtifactAndIssueID(t *testing.T) {
+	mock := &mockService{
+		xray: models.XraySummary{
+			Available: true,
+			Artifacts: []models.XrayArtifact{{
+				Issues: []models.XrayIssue{{
+					IssueID:  "XRAY-77",
+					Summary:  "No CVE yet",
+					Severity: "High",
+					CVEs:     []models.XrayCVE{{CVSS3: "7.5"}},
+					ImpactPaths: []string{
+						"default/libs-release/com/example/app.rpm/./opt/app/bin/app/github.com/acme/mod",
+					},
+				}},
+			}},
+		},
+	}
+	r := setupXrayTestRouter(mock)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/xray?repo=libs-release&path=com/example/app.rpm", nil)
+	r.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "opt/app/bin/app/github.com/acme/mod") {
+		t.Error("expected the impact path inside the artifact")
+	}
+	if strings.Contains(body, "default/libs-release") {
+		t.Error("the artifact's own location should be trimmed from the impact path")
+	}
+	if !strings.Contains(body, "<code>XRAY-77</code>") {
+		t.Error("expected the Xray issue id when the issue has no CVE id")
+	}
+}

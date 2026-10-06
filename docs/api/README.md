@@ -15,7 +15,7 @@ CLI and no gRPC interface in the repository.
 
 - **Style:** HTTP, server-rendered HTML with htmx partial swaps (`README.md`; `main.go` `setupRouter`). Responses are `text/html; charset=utf-8` fragments, not JSON (`internal/handlers/artifacts.go`, `internal/handlers/xray.go`). The only JSON on the wire is the request body of `POST /artifacts/bulk-delete` (`internal/handlers/artifacts.go` `BulkDeleteArtifacts`).
 - **Spec file:** None. The repository contains no OpenAPI/Swagger or proto file. The route table in `main.go` (`setupRouter`) is the source of truth; `README.md` ("Routes") carries a human-readable copy.
-- **Generated docs / UI:** None. No Swagger UI or generated reference is served; the registered routes in `main.go` are the eight listed below.
+- **Generated docs / UI:** None. No Swagger UI or generated reference is served; the registered routes in `main.go` are the ten listed below.
 
 ## Conventions
 
@@ -68,8 +68,8 @@ Conventions.
 ### `GET /artifacts`
 
 - **Handler:** `Handler.ListArtifacts` (`internal/handlers/artifacts.go`).
-- **Request:** query parameter `repo` (required).
-- **Response:** `200`, the `artifact_list` fragment (`templates/partials/artifact_list.html`).
+- **Request:** query parameters `repo` (required), `view` (`latest`, the default, shows the most recently modified version of each package; `all` shows every file) and `component` (optional; narrows the list to one component). Unknown `view` values fall back to `latest` (`report.NormalizeView` in `internal/report/artifacts.go`).
+- **Response:** `200`, the `artifact_list` fragment (`templates/partials/artifact_list.html`): the component filter with counts and one row per artifact with package, version, component, modification time and size. The Xray button is rendered for latest versions only.
 - **Errors:** 422 when `repo` is missing ("Repository parameter is required"), contains `..` ("Invalid repository"), or the upstream call fails ("Failed to load artifacts").
 
 ### `POST /artifacts/upload`
@@ -109,6 +109,22 @@ Conventions.
 - **Request:** query parameters `repo` and `path` (both required).
 - **Response:** `200`, the `xray_panel` fragment (`templates/partials/xray_panel.html`). When Xray is unreachable, returns 404, or returns any non-2xx status, the service reports the summary as unavailable rather than failing, so the panel still renders with `200` (`internal/jfrog/xray.go`).
 - **Errors:** 422 when a parameter is missing, contains `..`, or the Xray response body is malformed ("Failed to load Xray data").
+
+### `GET /vulnerabilities`
+
+- **Handler:** `Handler.GetVulnerabilities` (`internal/handlers/vulnerabilities.go`).
+- **Purpose:** every Xray vulnerability in the latest version of each package of a repository.
+- **Request:** query parameters `repo` (required), `severity` (optional: `critical`, `high`, `medium`, `low` or `unknown`; narrows the findings to that severity, anything else means no filter), `sort` (`severity` or `component`, default `severity`) and `dir` (`asc` or `desc`; default `desc` for severity, meaning most severe first, and `asc` for component). Unknown `sort` / `dir` values fall back to the defaults (`report.NormalizeSort` in `internal/report/report.go`).
+- **Behaviour:** lists the repository, keeps the most recently modified artifact per folder, package name and variant (`report.LatestArtifacts`), and asks Xray about those in batches of 100 paths (`GetXraySummaries` in `internal/jfrog/xray.go`). Nothing is cached; each request repeats these calls.
+- **Response:** `200`, the `vuln_report` fragment (`templates/partials/vuln_report.html`): totals, the packages Xray returned no data for ("not scanned"), the packages scanned and clean, and the findings grouped by component (`report.GroupRows`), each with severity, CVE ids (or the Xray issue id), package, summary and impact paths. `sort` orders the groups; inside a group findings run from most to least severe. Only the latest version of each package is reported. When Xray is unreachable or any batch returns a non-2xx status, the fragment still renders with `200` and a notice that Xray data could not be retrieved.
+- **Errors:** 422 when `repo` is missing or contains `..`, when listing the repository fails, or when an Xray response body is malformed ("Failed to load vulnerabilities").
+
+### `GET /vulnerabilities/export`
+
+- **Handler:** `Handler.ExportVulnerabilities` (`internal/handlers/vulnerabilities.go`).
+- **Request:** the same query parameters as `GET /vulnerabilities`, including `severity`. The file is a flat list ordered by `sort` and `dir`.
+- **Response:** `200`, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment` with file name `vulnerabilities-<repo>-<yyyymmdd>.csv`. Columns: `Component, Package, Artifact, Severity, Issue ID, CVEs, Summary, Impact Path`. Cells starting with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with `'` (`internal/report/csv.go`).
+- **Errors:** 422 with the error fragment for the same cases as `GET /vulnerabilities`, and also when Xray data could not be retrieved.
 
 ## Upstream APIs consumed
 

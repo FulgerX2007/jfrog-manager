@@ -60,6 +60,8 @@ func setupRouter(h handlers.Handler) *gin.Engine {
 	r.GET("/artifacts/download", h.DownloadArtifact)
 	r.DELETE("/artifacts", h.DeleteArtifact)
 	r.GET("/xray", h.GetXray)
+	r.GET("/vulnerabilities", h.GetVulnerabilities)
+	r.GET("/vulnerabilities/export", h.ExportVulnerabilities)
 
 	return r
 }

@@ -10,16 +10,49 @@ import (
 	"jfrog_manager/internal/models"
 )
 
+// xrayBatchSize is the number of artifact paths sent to Xray per summary request.
+const xrayBatchSize = 100
+
 // GetXraySummary retrieves the Xray vulnerability summary for an artifact.
-// Uses "default" as the JFrog service ID in the artifact path, which is the
-// standard service ID for single-server JFrog Platform installations.
 // Returns a summary with Available=false if Xray is unreachable or the artifact is not indexed.
 func (c Client) GetXraySummary(repo, path string) (models.XraySummary, error) {
+	return c.GetXraySummaries(repo, []string{path})
+}
+
+// GetXraySummaries retrieves the Xray vulnerability summary for several
+// artifacts of one repository, asking Xray in batches of xrayBatchSize paths.
+// Uses "default" as the JFrog service ID in the artifact path, which is the
+// standard service ID for single-server JFrog Platform installations.
+// Returns a summary with Available=false if any batch fails; paths Xray has
+// no data for are reported in the summary's Errors.
+func (c Client) GetXraySummaries(repo string, paths []string) (models.XraySummary, error) {
+	summary := models.XraySummary{Available: true}
+	for start := 0; start < len(paths); start += xrayBatchSize {
+		end := min(start+xrayBatchSize, len(paths))
+		batch, err := c.xraySummaryBatch(repo, paths[start:end])
+		if err != nil {
+			return models.XraySummary{}, err
+		}
+		if !batch.Available {
+			slog.Warn("xray batch unavailable", "batch", start/xrayBatchSize, "size", end-start)
+			return models.XraySummary{Available: false}, nil
+		}
+		summary.Artifacts = append(summary.Artifacts, batch.Artifacts...)
+		summary.Errors = append(summary.Errors, batch.Errors...)
+	}
+	return summary, nil
+}
+
+// xraySummaryBatch sends one summary request for the given paths.
+func (c Client) xraySummaryBatch(repo string, paths []string) (models.XraySummary, error) {
 	url := c.baseURL + "/xray/api/v1/summary/artifact"
 	payload := struct {
 		Paths []string `json:"paths"`
 	}{
-		Paths: []string{fmt.Sprintf("default/%s/%s", repo, path)},
+		Paths: make([]string, 0, len(paths)),
+	}
+	for _, path := range paths {
+		payload.Paths = append(payload.Paths, fmt.Sprintf("default/%s/%s", repo, path))
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
