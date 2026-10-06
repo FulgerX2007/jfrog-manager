@@ -15,6 +15,8 @@ TODO: confirm that the project follows Semantic Versioning. The repository conta
 
 ### Fixed
 
+- Release archives now include the `templates/` directory, which the binary loads at start-up (`.goreleaser.yaml`).
+
 ### Removed
 
 ### Security

@@ -120,7 +120,7 @@ There is no `SECURITY.md` in the repository. The statements below come from `REA
 - **Environments:** TODO: no environments (dev / staging / production) are defined in any file.
 - **Pipeline:** GitHub Actions. The only workflow is `release` (`.github/workflows/release.yml`), triggered by pushing a tag matching `v*`. It checks out the repository, sets up Go from `go.mod`, and runs `goreleaser/goreleaser-action@v6` with `release --clean`. There is no CI workflow that runs tests or the linter.
 - **Release process:** Push a `v*` tag. GoReleaser (`.goreleaser.yaml`) runs `go mod tidy`, builds the `jfrog-manager` binary for linux / darwin / windows on amd64 / arm64, produces `tar.gz` archives (`zip` on Windows) and `checksums.txt`, and generates a changelog grouped into Features (`feat`), Fixes (`fix`), and Others, excluding `docs:`, `test:`, `chore:`, and `ci:` commits.
-  - Known gap: archives include only the binary, `README.md`, and `LICENSE*`; the `templates/` directory the binary needs at runtime is not packaged (`.goreleaser.yaml`, `CLAUDE.md`).
+  - Archives include the binary, `README.md`, `LICENSE*`, and the `templates/` directory the binary needs at runtime (`.goreleaser.yaml`).
   - Known gap: `.goreleaser.yaml` sets `-X main.version`, `main.commit`, and `main.date`, but `main.go` declares no such variables.
   - TODO: release history is unverified. A local tag `1.0.0` exists (`git tag`), which does not match the `v*` trigger; whether any release was published is unknown.
   - TODO: who may cut a release, and any approval step, is not documented.
