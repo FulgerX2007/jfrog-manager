@@ -25,8 +25,7 @@ Network placement constraint (`README.md` "Security notes"): the service has no 
 - **Artifacts produced:** defined in `.goreleaser.yaml`.
   - Binary `jfrog-manager`, built with `CGO_ENABLED=0` for linux, darwin and windows on amd64 and arm64.
   - Archives named `{ProjectName}_{Version}_{Os}_{Arch}`, `tar.gz` (`zip` on windows), plus `checksums.txt`.
-  - Archives contain the binary plus `README.md` and `LICENSE*` only. The `templates/` directory is **not** packaged, although the binary loads it from disk at start-up (`templates.Load("templates")` in `main.go`) and exits if loading fails. A released archive is therefore not runnable on its own.
-  - TODO: decide how `templates/` ships with a release (add it to `archives.files` or embed it) — not resolved in the repo.
+  - Archives contain the binary, `README.md`, `LICENSE*` and the `templates/` directory (`.goreleaser.yaml`, `archives.files`). The binary loads `templates/` from disk at start-up (`templates.Load("templates")` in `main.go`) and exits if loading fails, so start it from the unpacked archive directory.
   - ldflags set `main.version`, `main.commit` and `main.date`, but `main.go` declares no such variables, so no version information is exposed by the binary.
   - A local, non-release build is `go build -o jfrog_manager .` (`CLAUDE.md`); that binary name and GoReleaser's `dist/` are gitignored (`.gitignore`).
 - **Release process:** push a `v*` tag; the `release` workflow publishes a GitHub release (`draft: false`, `prerelease: auto`) with the archives and checksums. GoReleaser runs `go mod tidy` as a pre-build hook. Release notes are generated from GitHub commit data and grouped as Features (`feat`), Fixes (`fix`) and Others; commits prefixed `docs:`, `test:`, `chore:` and `ci:` are excluded (`.goreleaser.yaml`).
@@ -65,7 +64,7 @@ Sources: `internal/config/config.go`, `.env.example`, `main.go`, `internal/jfrog
 - **Common operational issues & fixes:** only the failures visible in code are listed; each logs through `log/slog` and exits with status 1 (`main.go`).
   - `failed to load config` with `JFROG_URL is required` (or `JFROG_USERNAME` / `JFROG_TOKEN`): set the missing variable (`internal/config/config.go`).
   - `failed to load config` with `TIMEOUT must be a valid integer` or `TIMEOUT must be a positive integer`: fix or unset `TIMEOUT` (`internal/config/config.go`).
-  - `failed to load templates`: the process was not started from a directory containing `templates/`, which is the case for an unpacked release archive (`main.go`, `.goreleaser.yaml`).
+  - `failed to load templates`: the process was not started from a directory containing `templates/`, for example a release binary moved out of its unpacked archive directory (`main.go`, `.goreleaser.yaml`).
   - `server failed`: the listener could not start on `PORT` (`main.go`).
   - TODO: operational issues observed in real use, monitoring and alerting, log collection, on-call contact.
 - **Quotas / limits:** application-enforced limits only.

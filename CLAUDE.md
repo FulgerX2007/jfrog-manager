@@ -36,7 +36,7 @@ Request flow: `main.go` (routes + `securityHeaders` middleware) → `internal/ha
 
 ### Templates and the htmx contract
 
-- Templates are **not embedded**. `templates.Load("templates")` globs `templates/*.html` and `templates/partials/*.html` relative to the working directory at startup. Tests reach them via relative paths (`"templates"`, `"../../templates"`) or `runtime.Caller`. Note the GoReleaser archive currently ships only the binary and README, not `templates/`.
+- Templates are **not embedded**. `templates.Load("templates")` globs `templates/*.html` and `templates/partials/*.html` relative to the working directory at startup. Tests reach them via relative paths (`"templates"`, `"../../templates"`) or `runtime.Caller`. The GoReleaser archive ships `templates/` next to the binary (`.goreleaser.yaml`, `archives.files`), so a released binary must be started from its unpacked directory.
 - Every file defines a named template (`layout`, `artifact_list`, `error`, `xray_panel`, `upload_form`); handlers call `ExecuteTemplate` by name. A new partial placed outside those two globs will not be loaded.
 - All CSS and client-side JS (`bulkDelete`, `toggleXray`, `uploadWithProgress`, …) live inline in `templates/layout.html`; Bootstrap, htmx and fonts come from CDNs. Upload and bulk-delete are driven by that JS (XHR for progress, JSON body for bulk-delete), not by htmx attributes.
 - **Errors**: handlers call `h.renderError`, which returns **422** with the `error` fragment and sets `HX-Retarget: #error-container` / `HX-Reswap: innerHTML` so the message never lands inside the element that triggered the request. Oversized uploads return 413 with the same headers. Keep new handlers on this path.

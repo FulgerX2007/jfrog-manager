@@ -174,9 +174,9 @@ not enforce HTTPS (`internal/config/config.go`, `internal/jfrog/client.go`).
     UI depends on them being reachable from the user's browser.
   - The `templates/` directory on disk, resolved relative to the working directory
     (`templates.Load("templates")` in `main.go`). Templates are not embedded in the
-    binary (`internal/templates/templates.go`), and the GoReleaser archives include
-    only `README.md` and `LICENSE*` (`.goreleaser.yaml`), so a released binary needs
-    `templates/` supplied separately.
+    binary (`internal/templates/templates.go`), so the GoReleaser archives ship
+    `templates/` alongside it (`.goreleaser.yaml`) and a released binary must be started
+    from its unpacked directory.
   - No database, cache, queue, Dockerfile or orchestration manifests exist in the
     repository.
 - **Failure modes & fallbacks:**
@@ -308,8 +308,8 @@ code comments where one exists; otherwise it is not recorded):
 - Server-rendered HTML fragments with htmx instead of a JSON API (`README.md`,
   `internal/handlers/`). TODO: record the rationale.
 - Templates loaded from disk at startup rather than embedded in the binary
-  (`internal/templates/templates.go`). TODO: record the rationale and reconcile with
-  the release archives, which do not ship `templates/` (`.goreleaser.yaml`).
+  (`internal/templates/templates.go`). TODO: record the rationale. The release
+  archives ship `templates/` alongside the binary (`.goreleaser.yaml`).
 - No application-level authentication; access control is delegated to the deployment
   environment (`README.md`). TODO: record the rationale and the approved deployment
   patterns.
