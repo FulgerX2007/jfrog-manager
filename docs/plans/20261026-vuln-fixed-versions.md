@@ -202,11 +202,11 @@
 - Modify: `templates/layout.html` (column width CSS)
 - Modify: `internal/handlers/vulnerabilities_test.go`
 
-- [ ] add the two `<th>` / `<td>` columns between Package and Summary, one aligned line per `ComponentFix`, `—` rules as in Technical Details
-- [ ] add the muted notice when `.Available` and `.FixesFailed` > 0
-- [ ] add `col-ver` / `col-fix` widths in `layout.html` so the table still fits; check the narrow-screen layout
-- [ ] write rendering tests: headers present, components and fixed versions rendered and HTML-escaped, several components aligned, "No fix available" title only on matched-unfixed rows, plain `—` on unmatched rows, notice shown only when some exports failed and absent when the summary itself is unavailable
-- [ ] run tests - must pass before task 7
+- [x] add the two `<th>` / `<td>` columns between Package and Summary, one aligned line per `ComponentFix`, `—` rules as in Technical Details
+- [x] add the muted notice when `.Available` and `.FixesFailed` > 0
+- [x] add `col-ver` / `col-fix` widths in `layout.html` so the table still fits; check the narrow-screen layout (checked by CSS review: table stays inside `.o-table-wrap` with horizontal scroll)
+- [x] write rendering tests: headers present, components and fixed versions rendered and HTML-escaped, several components aligned, "No fix available" title only on matched-unfixed rows, plain `—` on unmatched rows, notice shown only when some exports failed and absent when the summary itself is unavailable
+- [x] run tests - must pass before task 7
 
 ### Task 7: Add the columns to the CSV export
 

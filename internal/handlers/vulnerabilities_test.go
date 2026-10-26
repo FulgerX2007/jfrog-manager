@@ -468,3 +468,98 @@ func TestVulnerabilities_NoFixesCallWithoutSummaryOrFindings(t *testing.T) {
 		})
 	}
 }
+
+// findingRow returns the <tr> of the rendered report that mentions summary.
+func findingRow(t *testing.T, body, summary string) string {
+	t.Helper()
+	idx := strings.Index(body, summary)
+	if idx < 0 {
+		t.Fatalf("summary %q not found in output", summary)
+	}
+	start := strings.LastIndex(body[:idx], "<tr>")
+	end := strings.Index(body[idx:], "</tr>")
+	if start < 0 || end < 0 {
+		t.Fatalf("no table row around %q", summary)
+	}
+	return body[start : idx+end]
+}
+
+func TestGetVulnerabilities_RendersVersionColumns(t *testing.T) {
+	mock := vulnMock()
+	mock.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{
+		"default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm": {
+			{IssueID: "XRAY-20", SourceComponentID: "go://golang.org/x/net:0.59.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"0.60.0"}}},
+			{IssueID: "XRAY-20", SourceComponentID: "go://golang.org/x/net:0.58.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"0.60.0", "0.59.1"}}},
+		},
+		"default/rpm-stable/portal/opcontrol/opcontrol-v1.10.52-5608d1c8.x86_64.rpm": {
+			{IssueID: "XRAY-11", SourceComponentID: "npm://<script>x</script>:1.0", ComponentVersions: models.XrayComponentVersions{}},
+		},
+	}}
+	w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+
+	assertOrder(t, body, ">Package</th>", ">Vulnerable version</th>", ">Fixed version</th>", ">Summary</th>")
+	if strings.Contains(body, "<script>x</script>") {
+		t.Error("component must be HTML-escaped")
+	}
+	if strings.Contains(body, "could not be retrieved for") {
+		t.Error("notice must not show when all exports succeeded")
+	}
+
+	// several components: one line each, the same order in both cells
+	opcore := findingRow(t, body, "High issue in opcore")
+	assertOrder(t, opcore,
+		"<code>golang.org/x/net:0.58.0</code>", "<code>golang.org/x/net:0.59.0</code>",
+		"<code>0.60.0, 0.59.1</code>", "<code>0.60.0</code>")
+	if strings.Count(opcore, `class="o-fix-line"`) != 4 {
+		t.Errorf("expected two aligned lines per cell, got %q", opcore)
+	}
+	if strings.Contains(opcore, "No fix available") {
+		t.Error("fixed row must not say no fix available")
+	}
+
+	// matched, no fix: title only here
+	critical := findingRow(t, body, "Critical issue in opcontrol")
+	if !strings.Contains(critical, "&lt;script&gt;x&lt;/script&gt;:1.0") {
+		t.Errorf("expected escaped component, got %q", critical)
+	}
+	if !strings.Contains(critical, `title="No fix available"`) {
+		t.Errorf("expected the no-fix title on a matched unfixed row, got %q", critical)
+	}
+
+	// unmatched: plain dashes in both cells
+	low := findingRow(t, body, "Low issue in opcontrol")
+	if strings.Contains(low, "No fix available") || strings.Contains(low, "o-fix-line") {
+		t.Errorf("unmatched row must show plain dashes, got %q", low)
+	}
+	dash := `<td><span class="o-muted">&mdash;</span></td>`
+	assertOrder(t, low, ">opcontrol</td>", dash, dash, "Low issue in opcontrol")
+	if strings.Count(body, `title="No fix available"`) != 1 {
+		t.Errorf("expected exactly one no-fix title, got %d", strings.Count(body, `title="No fix available"`))
+	}
+}
+
+func TestGetVulnerabilities_FixesNotice(t *testing.T) {
+	const notice = "Vulnerable and fixed versions could not be retrieved for 1 packages."
+
+	partial := vulnMock()
+	partial.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{}, Failed: 1}
+	w := getVulnerabilities(partial, "/vulnerabilities?repo=rpm-stable")
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), notice) {
+		t.Errorf("expected the notice when an export failed (status %d)", w.Code)
+	}
+
+	unavailable := vulnMock()
+	unavailable.xray = models.XraySummary{Available: false}
+	unavailable.fixes = models.ComponentFixes{Failed: 1}
+	w = getVulnerabilities(unavailable, "/vulnerabilities?repo=rpm-stable")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	if strings.Contains(w.Body.String(), "could not be retrieved for") {
+		t.Error("notice must not show when the summary itself is unavailable")
+	}
+}
