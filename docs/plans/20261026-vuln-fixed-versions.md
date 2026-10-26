@@ -215,10 +215,10 @@
 - Modify: `internal/report/csv_test.go`
 - Modify: `internal/handlers/vulnerabilities_test.go` (export assertions, if any check the header)
 
-- [ ] extend `csvHeader` and the record with `Vulnerable Version` and `Fixed Version` after `CVEs`, formatted as in Technical Details, through `guardCell`
-- [ ] update existing CSV tests for the new header/column positions
-- [ ] write tests for several components, an empty fixed list (`none`), an unmatched row (empty cells), and the formula guard on a value starting with `=` or `-`
-- [ ] run tests - must pass before task 8
+- [x] extend `csvHeader` and the record with `Vulnerable Version` and `Fixed Version` after `CVEs`, formatted as in Technical Details, through `guardCell`
+- [x] update existing CSV tests for the new header/column positions
+- [x] write tests for several components, an empty fixed list (`none`), an unmatched row (empty cells), and the formula guard on a value starting with `=` or `-`
+- [x] run tests - must pass before task 8
 
 ### Task 8: Verify acceptance criteria
 - [ ] verify both columns show on the page and in the CSV for scanned findings

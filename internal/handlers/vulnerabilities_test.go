@@ -300,11 +300,11 @@ func TestExportVulnerabilities_Success(t *testing.T) {
 	if len(records) != 4 {
 		t.Fatalf("expected header and 3 rows, got %d records", len(records))
 	}
-	if records[0][0] != "Component" || records[0][7] != "Impact Path" {
+	if records[0][0] != "Component" || records[0][6] != "Vulnerable Version" || records[0][7] != "Fixed Version" || records[0][9] != "Impact Path" {
 		t.Errorf("unexpected header: %v", records[0])
 	}
 	// Component ascending, most severe first inside a component.
-	gotOrder := []string{records[1][6], records[2][6], records[3][6]}
+	gotOrder := []string{records[1][8], records[2][8], records[3][8]}
 	wantOrder := []string{"Critical issue in opcontrol", "Low issue in opcontrol", "High issue in opcore"}
 	if strings.Join(gotOrder, "|") != strings.Join(wantOrder, "|") {
 		t.Errorf("unexpected row order: %v", gotOrder)
@@ -312,7 +312,7 @@ func TestExportVulnerabilities_Success(t *testing.T) {
 	if records[3][0] != "opcore" || records[3][2] != "portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm" {
 		t.Errorf("unexpected opcore row: %v", records[3])
 	}
-	if records[3][7] != "opt/opcore/bin/opcore/github.com/pelletier/go-toml/v2" {
+	if records[3][9] != "opt/opcore/bin/opcore/github.com/pelletier/go-toml/v2" {
 		t.Errorf("unexpected impact path cell: %q", records[3][7])
 	}
 }
@@ -342,6 +342,27 @@ func TestExportVulnerabilities_SeverityFilter(t *testing.T) {
 	}
 	if len(records) != 2 || records[1][3] != "High" || records[1][0] != "opcore" {
 		t.Errorf("expected only the high finding, got %v", records)
+	}
+}
+
+func TestExportVulnerabilities_IncludesVersions(t *testing.T) {
+	mock := vulnMock()
+	mock.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{
+		"default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm": {
+			{IssueID: "XRAY-20", SourceComponentID: "go://github.com/pelletier/go-toml/v2:2.0.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"2.0.1"}}},
+		},
+	}}
+	w := getVulnerabilities(mock, "/vulnerabilities/export?repo=rpm-stable&severity=high")
+
+	records, err := csv.NewReader(w.Body).ReadAll()
+	if err != nil {
+		t.Fatalf("response is not valid CSV: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("expected header and 1 row, got %v", records)
+	}
+	if records[1][6] != "github.com/pelletier/go-toml/v2:2.0.0" || records[1][7] != "2.0.1" {
+		t.Errorf("unexpected version cells: %q, %q", records[1][6], records[1][7])
 	}
 }
 
