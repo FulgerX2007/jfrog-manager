@@ -115,22 +115,22 @@ Conventions.
 - **Handler:** `Handler.GetVulnerabilities` (`internal/handlers/vulnerabilities.go`).
 - **Purpose:** every Xray vulnerability in the latest version of each package of a repository.
 - **Request:** query parameters `repo` (required), `severity` (optional: `critical`, `high`, `medium`, `low` or `unknown`; narrows the findings to that severity, anything else means no filter), `sort` (`severity` or `component`, default `severity`) and `dir` (`asc` or `desc`; default `desc` for severity, meaning most severe first, and `asc` for component). Unknown `sort` / `dir` values fall back to the defaults (`report.NormalizeSort` in `internal/report/report.go`).
-- **Behaviour:** lists the repository, keeps the most recently modified artifact per folder, package name and variant (`report.LatestArtifacts`), and asks Xray about those in batches of 100 paths (`GetXraySummaries` in `internal/jfrog/xray.go`). Nothing is cached; each request repeats these calls.
-- **Response:** `200`, the `vuln_report` fragment (`templates/partials/vuln_report.html`): totals, the packages Xray returned no data for ("not scanned"), the packages scanned and clean, and the findings grouped by component (`report.GroupRows`), each with severity, CVE ids (or the Xray issue id), package, summary and impact paths. `sort` orders the groups; inside a group findings run from most to least severe. Only the latest version of each package is reported. When Xray is unreachable or any batch returns a non-2xx status, the fragment still renders with `200` and a notice that Xray data could not be retrieved.
+- **Behaviour:** lists the repository, keeps the most recently modified artifact per folder, package name and variant (`report.LatestArtifacts`), and asks Xray about those in batches of 100 paths (`GetXraySummaries` in `internal/jfrog/xray.go`). For every latest artifact with at least one finding it then makes one `exportDetails` call (`GetComponentFixes` in `internal/jfrog/xray_export.go`), four at a time, all bounded together by `TIMEOUT`, and joins the vulnerable component and fixed versions onto the findings by issue id (`report.AttachVersions`). Nothing is cached; each request repeats these calls.
+- **Response:** `200`, the `vuln_report` fragment (`templates/partials/vuln_report.html`): totals, the packages Xray returned no data for ("not scanned"), the packages scanned and clean, and the findings grouped by component (`report.GroupRows`), each with severity, CVE ids (or the Xray issue id), package, vulnerable version (installed component and version, one line per component), fixed version (`—` titled "No fix available" when Xray knows no fix), summary and impact paths. `sort` orders the groups; inside a group findings run from most to least severe. Only the latest version of each package is reported. When Xray is unreachable or any batch returns a non-2xx status, the fragment still renders with `200` and a notice that Xray data could not be retrieved. When an `exportDetails` call fails (network error, non-2xx, timeout, or a malformed body), only the version columns of the affected findings show `—`, and a notice gives the number of packages whose versions could not be retrieved; no finding is hidden.
 - **Errors:** 422 when `repo` is missing or contains `..`, when listing the repository fails, or when an Xray response body is malformed ("Failed to load vulnerabilities").
 
 ### `GET /vulnerabilities/export`
 
 - **Handler:** `Handler.ExportVulnerabilities` (`internal/handlers/vulnerabilities.go`).
 - **Request:** the same query parameters as `GET /vulnerabilities`, including `severity`. The file is a flat list ordered by `sort` and `dir`.
-- **Response:** `200`, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment` with file name `vulnerabilities-<repo>-<yyyymmdd>.csv`. Columns: `Component, Package, Artifact, Severity, Issue ID, CVEs, Summary, Impact Path`. Cells starting with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with `'` (`internal/report/csv.go`).
+- **Response:** `200`, `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment` with file name `vulnerabilities-<repo>-<yyyymmdd>.csv`. Columns: `Component, Package, Artifact, Severity, Issue ID, CVEs, Vulnerable Version, Fixed Version, Summary, Impact Path` (`Vulnerable Version` and `Fixed Version` were inserted before `Summary`, so `Summary` and `Impact Path` moved two positions). `Vulnerable Version` lists the components joined with `; `; `Fixed Version` lists their fixed versions in the same order, each component's list joined with `, ` and components joined with `; `, `none` for a component with no fix. Both are empty when the versions could not be retrieved. Cells starting with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with `'` (`internal/report/csv.go`).
 - **Errors:** 422 with the error fragment for the same cases as `GET /vulnerabilities`, and also when Xray data could not be retrieved.
 
 ## Upstream APIs consumed
 
 Not part of this service's own contract, but changes here alter what the routes above
 can do. All calls are made by `jfrog.Client` (`internal/jfrog/client.go`,
-`internal/jfrog/artifacts.go`, `internal/jfrog/xray.go`) against `JFROG_URL`:
+`internal/jfrog/artifacts.go`, `internal/jfrog/xray.go`, `internal/jfrog/xray_export.go`) against `JFROG_URL`:
 
 | Upstream call | Used by |
 |---------------|---------|
@@ -139,6 +139,7 @@ can do. All calls are made by `jfrog.Client` (`internal/jfrog/client.go`,
 | `PUT {base}/artifactory/{repo}/{path}` | `POST /artifacts/upload` |
 | `GET {base}/artifactory/{repo}/{path}` | `GET /artifacts/download` |
 | `DELETE {base}/artifactory/{repo}/{path}` | `DELETE /artifacts`, `POST /artifacts/bulk-delete` |
-| `POST {base}/xray/api/v1/summary/artifact` | `GET /xray` |
+| `POST {base}/xray/api/v1/summary/artifact` | `GET /xray`, `GET /vulnerabilities`, `GET /vulnerabilities/export` |
+| `POST {base}/xray/api/v1/component/exportDetails` (security only, JSON in a zip) | `GET /vulnerabilities`, `GET /vulnerabilities/export` — one call per latest artifact with findings |
 
 TODO: record the Artifactory / Xray versions this service is expected to work against (not stated in the repo).

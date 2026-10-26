@@ -229,10 +229,10 @@
 - [x] check coverage of the new code: `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out` (profile written to the scratchpad, not the repo; xray_export.go 86–100%, versions.go 100%, csv.go 90.9–100%, handlers/vulnerabilities.go 94–100%)
 
 ### Task 9: [Final] Update documentation
-- [ ] update `docs/api/README.md`: new columns on the page, new CSV header (note that `Summary` and `Impact Path` moved two positions), the extra `exportDetails` call per artifact with findings
-- [ ] update `CLAUDE.md`: `exportDetails` as the source of vulnerable/fixed versions (and why not reports or summaries), its degrade rule, the worker pool, and the new `Service` method in the mock-update note
-- [ ] update `README.md` if it lists the report columns
-- [ ] move this plan to `docs/plans/completed/`
+- [x] update `docs/api/README.md`: new columns on the page, new CSV header (note that `Summary` and `Impact Path` moved two positions), the extra `exportDetails` call per artifact with findings
+- [x] update `CLAUDE.md`: `exportDetails` as the source of vulnerable/fixed versions (and why not reports or summaries), its degrade rule, the worker pool, and the new `Service` method in the mock-update note
+- [x] update `README.md` if it lists the report columns
+- [x] move this plan to `docs/plans/completed/` (done by the orchestrator after reviews)
 
 ## Post-Completion
 *Items requiring manual intervention or external systems - no checkboxes, informational only*

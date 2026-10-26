@@ -63,7 +63,7 @@ go run main.go
 - **Download artifacts** — server-proxied streaming download; credentials never leave the server
 - **Latest versions or all files** — the artifact list shows the latest version of each package by default, with a switch to all files, a component filter (the first folder that differs between packages) and a text filter
 - **Delete artifacts** — individual delete with confirmation, or bulk delete via row checkboxes (capped at 500 paths per request)
-- **Vulnerability report** — every Xray vulnerability in the latest version of each package in the repository, and only those: older versions are left out. Findings are grouped by component (the first folder that differs between packages), can be ordered by severity or component and narrowed to one severity, show the impact path of each finding, and export as CSV. Packages Xray returned no data for are listed as "not scanned" instead of being counted as clean.
+- **Vulnerability report** — every Xray vulnerability in the latest version of each package in the repository, and only those: older versions are left out. Findings are grouped by component (the first folder that differs between packages), can be ordered by severity or component and narrowed to one severity, show the vulnerable component version and the version(s) that fix it (from the Xray component export) along with the impact path of each finding, and export as CSV. Packages Xray returned no data for are listed as "not scanned" instead of being counted as clean.
 - **Xray findings per artifact** — on the latest version of a package, toggle a per-row panel with severity badges, CVE or Xray issue ids, summaries and impact paths; loading skeleton during fetch; second click collapses the panel. Graceful fallback when Xray is unavailable or an artifact is unindexed.
 
 ## Routes
@@ -111,7 +111,8 @@ jfrog_manager/
 │   │   ├── client.go                # HTTP client with Basic auth + streaming client for up/downloads
 │   │   ├── service.go               # Service interface for testability
 │   │   ├── artifacts.go             # ListRepos
-│   │   └── xray.go                  # Xray summary client (single and batched)
+│   │   ├── xray.go                  # Xray summary client (single and batched)
+│   │   └── xray_export.go           # Xray component export (vulnerable + fixed versions)
 │   ├── models/models.go             # Repository, Artifact, Xray data structs, report row
 │   ├── report/                      # Latest-version selection, report rows, sorting, CSV
 │   └── templates/templates.go       # Template loading + helper funcs (humanSize, cssID, etc.)
