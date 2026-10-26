@@ -7,23 +7,6 @@ import (
 	"jfrog_manager/internal/models"
 )
 
-func TestComponentLabel(t *testing.T) {
-	tests := []struct {
-		in, want string
-	}{
-		{"go://golang.org/x/net:0.59.0", "golang.org/x/net:0.59.0"},
-		{"rpm://9:openssl-libs:3.0.7-27.el9", "9:openssl-libs:3.0.7-27.el9"},
-		{"npm://lodash:4.17.20", "lodash:4.17.20"},
-		{"golang.org/x/net:0.59.0", "golang.org/x/net:0.59.0"},
-		{"", ""},
-	}
-	for _, tt := range tests {
-		if got := componentLabel(tt.in); got != tt.want {
-			t.Errorf("componentLabel(%q) = %q, want %q", tt.in, got, tt.want)
-		}
-	}
-}
-
 func exportRow(issue, comp string, fixed ...string) models.XrayExportRow {
 	return models.XrayExportRow{
 		IssueID:           issue,
@@ -51,11 +34,56 @@ func TestAttachVersions_MatchesByArtifactAndIssue(t *testing.T) {
 	got := AttachVersions("repo", rows, fixes)
 
 	want := []models.ComponentFix{{Component: "golang.org/x/net:0.59.0", Fixed: []string{"0.60.0"}}}
-	if !got[0].FixesMatched || !reflect.DeepEqual(got[0].Fixes, want) {
-		t.Errorf("row 0: matched=%v fixes=%v, want %v", got[0].FixesMatched, got[0].Fixes, want)
+	if !reflect.DeepEqual(got[0].Fixes, want) {
+		t.Errorf("row 0: fixes=%v, want %v", got[0].Fixes, want)
 	}
-	if got[1].FixesMatched || len(got[1].Fixes) != 0 {
-		t.Errorf("row 1 should be unmatched, got matched=%v fixes=%v", got[1].FixesMatched, got[1].Fixes)
+	if len(got[1].Fixes) != 0 {
+		t.Errorf("row 1 should be unmatched, got fixes=%v", got[1].Fixes)
+	}
+}
+
+func TestAttachVersions_StripsComponentScheme(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"go://golang.org/x/net:0.59.0", "golang.org/x/net:0.59.0"},
+		{"rpm://9:openssl-libs:3.0.7-27.el9", "9:openssl-libs:3.0.7-27.el9"},
+		{"npm://lodash:4.17.20", "lodash:4.17.20"},
+		{"golang.org/x/net:0.59.0", "golang.org/x/net:0.59.0"},
+	}
+	for _, tt := range tests {
+		fixes := models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{
+			"repo/a.rpm": {exportRow("XRAY-1", tt.in, "2")},
+		}}
+		got := AttachVersions("repo", []models.VulnRow{vulnRow("/a.rpm", "XRAY-1")}, fixes)
+		if len(got[0].Fixes) != 1 || got[0].Fixes[0].Component != tt.want {
+			t.Errorf("component %q: got fixes %+v, want label %q", tt.in, got[0].Fixes, tt.want)
+		}
+	}
+}
+
+func TestAttachVersions_IgnoresExportRowsWithoutIDOrComponent(t *testing.T) {
+	rows := []models.VulnRow{vulnRow("/a.rpm", ""), vulnRow("/a.rpm", "XRAY-1"), vulnRow("/a.rpm", "XRAY-2")}
+	fixes := models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{
+		"repo/a.rpm": {
+			exportRow("", "go://x:1", "2"),
+			exportRow("XRAY-1", "", "3"),
+			exportRow("XRAY-2", "", "4"),
+			exportRow("XRAY-2", "go://y:1", "5"),
+		},
+	}}
+
+	got := AttachVersions("repo", rows, fixes)
+
+	if len(got[0].Fixes) != 0 {
+		t.Errorf("row without issue id must not match, got %+v", got[0].Fixes)
+	}
+	if len(got[1].Fixes) != 0 {
+		t.Errorf("export row without component must be ignored, got %+v", got[1].Fixes)
+	}
+	want := []models.ComponentFix{{Component: "y:1", Fixed: []string{"5"}}}
+	if !reflect.DeepEqual(got[2].Fixes, want) {
+		t.Errorf("row XRAY-2: fixes=%+v, want %+v", got[2].Fixes, want)
 	}
 }
 
@@ -72,7 +100,7 @@ func TestAttachVersions_PathForms(t *testing.T) {
 		}}
 		for _, path := range []string{"/a/b.rpm", "a/b.rpm"} {
 			got := AttachVersions("repo", []models.VulnRow{vulnRow(path, "XRAY-1")}, fixes)
-			if !got[0].FixesMatched {
+			if len(got[0].Fixes) != 1 {
 				t.Errorf("key %q, path %q: expected a match", key, path)
 			}
 		}
@@ -109,11 +137,10 @@ func TestAttachVersions_SameIssueOnTwoArtifactsKeptApart(t *testing.T) {
 
 	got := AttachVersions("repo", rows, fixes)
 
-	if got[0].Fixes[0].Component != "x:1" || got[1].Fixes[0].Component != "x:5" {
+	wantA := []models.ComponentFix{{Component: "x:1", Fixed: []string{"2"}}}
+	wantB := []models.ComponentFix{{Component: "x:5", Fixed: []string{"6"}}}
+	if !reflect.DeepEqual(got[0].Fixes, wantA) || !reflect.DeepEqual(got[1].Fixes, wantB) {
 		t.Errorf("fixes mixed between artifacts: %v / %v", got[0].Fixes, got[1].Fixes)
-	}
-	if len(got[0].Fixes) != 1 || len(got[1].Fixes) != 1 {
-		t.Errorf("expected one fix per row, got %v / %v", got[0].Fixes, got[1].Fixes)
 	}
 }
 
@@ -125,7 +152,7 @@ func TestAttachVersions_MatchedWithoutFix(t *testing.T) {
 
 	got := AttachVersions("repo", rows, fixes)
 
-	if !got[0].FixesMatched || len(got[0].Fixes) != 1 {
+	if len(got[0].Fixes) != 1 {
 		t.Fatalf("expected a matched row with one component, got %+v", got[0])
 	}
 	if len(got[0].Fixes[0].Fixed) != 0 {
@@ -141,7 +168,7 @@ func TestAttachVersions_NoMatch(t *testing.T) {
 
 	got := AttachVersions("repo", rows, fixes)
 
-	if got[0].FixesMatched || len(got[0].Fixes) != 0 {
+	if len(got[0].Fixes) != 0 {
 		t.Errorf("expected no match, got %+v", got[0])
 	}
 }
@@ -169,7 +196,7 @@ func TestAttachVersions_DoesNotMutateInput(t *testing.T) {
 
 	got := AttachVersions("repo", rows, fixes)
 
-	if rows[0].FixesMatched || rows[0].Fixes != nil {
+	if rows[0].Fixes != nil {
 		t.Errorf("input row was mutated: %+v", rows[0])
 	}
 	if len(got) != len(rows) {
@@ -206,5 +233,32 @@ func TestArtifactsWithFindings(t *testing.T) {
 
 	if got := ArtifactsWithFindings("repo", nil, summary); len(got) != 0 {
 		t.Errorf("expected no artifacts without rows, got %+v", got)
+	}
+}
+
+func TestArtifactsWithFindings_DuplicatePathLastEntryWins(t *testing.T) {
+	first := models.XrayArtifact{
+		General: models.XrayGeneral{Path: "default/repo/a.rpm", SHA256: "old", ComponentID: "rpm://a:1"},
+		Issues:  []models.XrayIssue{{IssueID: "XRAY-1"}},
+	}
+	second := first
+	second.General.SHA256 = "new"
+	other := models.XrayArtifact{
+		General: models.XrayGeneral{Path: "default/repo/b.rpm", SHA256: "b", ComponentID: "rpm://b:1"},
+		Issues:  []models.XrayIssue{{IssueID: "XRAY-2"}},
+	}
+	rows := []models.VulnRow{{ArtifactPath: "/a.rpm", IssueID: "XRAY-1"}, {ArtifactPath: "/b.rpm", IssueID: "XRAY-2"}}
+
+	got := ArtifactsWithFindings("repo", rows, models.XraySummary{Artifacts: []models.XrayArtifact{first, other, second}})
+	want := []models.XrayGeneral{second.General, other.General}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ArtifactsWithFindings = %+v, want %+v", got, want)
+	}
+
+	cleanLast := first
+	cleanLast.Issues = nil
+	got = ArtifactsWithFindings("repo", rows, models.XraySummary{Artifacts: []models.XrayArtifact{first, cleanLast}})
+	if len(got) != 0 {
+		t.Errorf("a later entry without issues must win, got %+v", got)
 	}
 }

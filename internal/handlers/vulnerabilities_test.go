@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
 	"encoding/csv"
 	"errors"
 	"html"
@@ -313,7 +315,7 @@ func TestExportVulnerabilities_Success(t *testing.T) {
 		t.Errorf("unexpected opcore row: %v", records[3])
 	}
 	if records[3][9] != "opt/opcore/bin/opcore/github.com/pelletier/go-toml/v2" {
-		t.Errorf("unexpected impact path cell: %q", records[3][7])
+		t.Errorf("unexpected impact path cell: %q", records[3][9])
 	}
 }
 
@@ -369,7 +371,7 @@ func TestExportVulnerabilities_IncludesVersions(t *testing.T) {
 func buildReport(t *testing.T, mock *mockService, q vulnerabilityQuery) vulnerabilityResult {
 	t.Helper()
 	h := NewHandler(mock, nil, "")
-	res, err := h.buildVulnerabilityReport(q)
+	res, err := h.buildVulnerabilityReport(context.Background(), q)
 	if err != nil {
 		t.Fatalf("buildVulnerabilityReport: %v", err)
 	}
@@ -394,14 +396,14 @@ func TestBuildVulnerabilityReport_AttachesFixes(t *testing.T) {
 	for _, rows := range [][]models.VulnRow{res.rows, res.report.Rows} {
 		for _, row := range rows {
 			if row.IssueID != "XRAY-20" {
-				if row.FixesMatched || len(row.Fixes) != 0 {
+				if len(row.Fixes) != 0 {
 					t.Errorf("row %s must not carry fixes, got %+v", row.IssueID, row.Fixes)
 				}
 				continue
 			}
 			want := []models.ComponentFix{{Component: "github.com/pelletier/go-toml/v2:2.0.0", Fixed: []string{"2.0.1"}}}
-			if !row.FixesMatched || !reflect.DeepEqual(row.Fixes, want) {
-				t.Errorf("row XRAY-20: got matched=%v fixes=%+v, want %+v", row.FixesMatched, row.Fixes, want)
+			if !reflect.DeepEqual(row.Fixes, want) {
+				t.Errorf("row XRAY-20: got fixes=%+v, want %+v", row.Fixes, want)
 			}
 		}
 	}
@@ -439,7 +441,7 @@ func TestBuildVulnerabilityReport_FixesPartiallyFailed(t *testing.T) {
 
 func TestVulnerabilities_FixesErrorStillRenders(t *testing.T) {
 	mock := vulnMock()
-	mock.fixesErr = errors.New("malformed export")
+	mock.fixesErr = errors.New("request canceled")
 
 	res := buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
 	if res.fixesFailed != 2 {
@@ -449,7 +451,7 @@ func TestVulnerabilities_FixesErrorStillRenders(t *testing.T) {
 		t.Fatalf("expected all 3 rows kept, got %d", len(res.rows))
 	}
 	for _, row := range res.rows {
-		if row.FixesMatched || len(row.Fixes) != 0 {
+		if len(row.Fixes) != 0 {
 			t.Errorf("row %s must not carry fixes after an error", row.IssueID)
 		}
 	}
@@ -465,6 +467,18 @@ func TestVulnerabilities_FixesErrorStillRenders(t *testing.T) {
 	w = getVulnerabilities(mock, "/vulnerabilities/export?repo=rpm-stable")
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected export status 200, got %d", w.Code)
+	}
+	records, err := csv.NewReader(w.Body).ReadAll()
+	if err != nil {
+		t.Fatalf("response is not valid CSV: %v", err)
+	}
+	if len(records) != 4 {
+		t.Fatalf("expected header and 3 rows, got %d records", len(records))
+	}
+	for _, rec := range records[1:] {
+		if rec[6] != "" || rec[7] != "" {
+			t.Errorf("expected empty version cells after an error, got %q, %q", rec[6], rec[7])
+		}
 	}
 }
 
@@ -483,8 +497,8 @@ func TestVulnerabilities_NoFixesCallWithoutSummaryOrFindings(t *testing.T) {
 			if w.Code != http.StatusOK {
 				t.Fatalf("expected status 200, got %d", w.Code)
 			}
-			if mock.fixesArtifacts != nil {
-				t.Errorf("expected no fixes call, got %v", mock.fixesArtifacts)
+			if mock.fixesCalls != 0 {
+				t.Errorf("expected no fixes call, got %d (%v)", mock.fixesCalls, mock.fixesArtifacts)
 			}
 		})
 	}
@@ -514,6 +528,7 @@ func TestGetVulnerabilities_RendersVersionColumns(t *testing.T) {
 		},
 		"default/rpm-stable/portal/opcontrol/opcontrol-v1.10.52-5608d1c8.x86_64.rpm": {
 			{IssueID: "XRAY-11", SourceComponentID: "npm://<script>x</script>:1.0", ComponentVersions: models.XrayComponentVersions{}},
+			{IssueID: "XRAY-11", SourceComponentID: "rpm://zlib:1.2", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"1.3"}}},
 		},
 	}}
 	w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
@@ -542,13 +557,15 @@ func TestGetVulnerabilities_RendersVersionColumns(t *testing.T) {
 		t.Error("fixed row must not say no fix available")
 	}
 
-	// matched, no fix: title only here
+	// one unfixed and one fixed component: the titled dash and the fix line
+	// up with their components
 	critical := findingRow(t, body, "Critical issue in opcontrol")
-	if !strings.Contains(critical, "&lt;script&gt;x&lt;/script&gt;:1.0") {
-		t.Errorf("expected escaped component, got %q", critical)
-	}
-	if !strings.Contains(critical, `title="No fix available"`) {
-		t.Errorf("expected the no-fix title on a matched unfixed row, got %q", critical)
+	assertOrder(t, critical,
+		"<code>&lt;script&gt;x&lt;/script&gt;:1.0</code>", "<code>zlib:1.2</code>",
+		`<span class="o-fix-line"><span class="o-muted" title="No fix available">&mdash;</span></span>`,
+		`<span class="o-fix-line"><code>1.3</code></span>`)
+	if strings.Count(critical, `class="o-fix-line"`) != 4 {
+		t.Errorf("expected two aligned lines per cell, got %q", critical)
 	}
 
 	// unmatched: plain dashes in both cells
@@ -564,7 +581,7 @@ func TestGetVulnerabilities_RendersVersionColumns(t *testing.T) {
 }
 
 func TestGetVulnerabilities_FixesNotice(t *testing.T) {
-	const notice = "Vulnerable and fixed versions could not be retrieved for 1 packages."
+	const notice = "Vulnerable and fixed versions could not be retrieved for 1 package."
 
 	partial := vulnMock()
 	partial.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{}, Failed: 1}
@@ -573,21 +590,24 @@ func TestGetVulnerabilities_FixesNotice(t *testing.T) {
 		t.Errorf("expected the notice when an export failed (status %d)", w.Code)
 	}
 
-	unavailable := vulnMock()
-	unavailable.xray = models.XraySummary{Available: false}
-	unavailable.fixes = models.ComponentFixes{Failed: 1}
-	w = getVulnerabilities(unavailable, "/vulnerabilities?repo=rpm-stable")
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", w.Code)
+	// The handler never asks for fixes without a summary, so render the
+	// template directly to check the notice stays inside the available branch.
+	tmpl, err := templates.Load("../../templates")
+	if err != nil {
+		t.Fatalf("loading templates: %v", err)
 	}
-	if strings.Contains(w.Body.String(), "could not be retrieved for") {
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, "vuln_report", map[string]any{"Repo": "rpm-stable", "Available": false, "FixesFailed": 2}); err != nil {
+		t.Fatalf("rendering: %v", err)
+	}
+	if strings.Contains(buf.String(), "could not be retrieved for") {
 		t.Error("notice must not show when the summary itself is unavailable")
 	}
 }
 
 func TestGetVulnerabilities_AllFixesFailedShowsDashesAndNotice(t *testing.T) {
 	mock := vulnMock()
-	mock.fixesErr = errors.New("export timed out")
+	mock.fixesErr = errors.New("request canceled")
 	w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
 
 	if w.Code != http.StatusOK {

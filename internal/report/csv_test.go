@@ -97,7 +97,7 @@ func TestWriteCSV_VersionColumns(t *testing.T) {
 	}{
 		{
 			name: "several components",
-			row: models.VulnRow{FixesMatched: true, Fixes: []models.ComponentFix{
+			row: models.VulnRow{Fixes: []models.ComponentFix{
 				{Component: "golang.org/x/net:0.58.0", Fixed: []string{"0.60.0"}},
 				{Component: "golang.org/x/net:0.59.0", Fixed: []string{"0.60.0", "0.61.1"}},
 			}},
@@ -106,7 +106,7 @@ func TestWriteCSV_VersionColumns(t *testing.T) {
 		},
 		{
 			name: "empty fixed list",
-			row: models.VulnRow{FixesMatched: true, Fixes: []models.ComponentFix{
+			row: models.VulnRow{Fixes: []models.ComponentFix{
 				{Component: "lodash:4.17.20"},
 				{Component: "openssl:3.0.1", Fixed: []string{"3.0.2"}},
 			}},
@@ -121,7 +121,7 @@ func TestWriteCSV_VersionColumns(t *testing.T) {
 		},
 		{
 			name: "formula guard",
-			row: models.VulnRow{FixesMatched: true, Fixes: []models.ComponentFix{
+			row: models.VulnRow{Fixes: []models.ComponentFix{
 				{Component: "=cmd|calc", Fixed: []string{"-1+1"}},
 			}},
 			wantVuln:  "'=cmd|calc",

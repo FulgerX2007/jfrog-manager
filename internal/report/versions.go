@@ -12,7 +12,8 @@ import (
 // AttachVersions joins the Xray component export onto the report rows and
 // returns a copy of them. Rows are matched by artifact path, then by issue id;
 // each matching export row adds the installed component and the versions that
-// fix it. Rows are never dropped or added, and the input slice is not modified.
+// fix it. Export rows without an issue id or component are ignored. Rows are
+// never dropped or added, and the input slice is not modified.
 func AttachVersions(repo string, rows []models.VulnRow, fixes models.ComponentFixes) []models.VulnRow {
 	out := make([]models.VulnRow, len(rows))
 	copy(out, rows)
@@ -30,6 +31,9 @@ func AttachVersions(repo string, rows []models.VulnRow, fixes models.ComponentFi
 			byArtifact[p] = byIssue
 		}
 		for _, r := range exp {
+			if r.IssueID == "" || r.SourceComponentID == "" {
+				continue
+			}
 			byIssue[r.IssueID] = append(byIssue[r.IssueID], r)
 			exportRows++
 		}
@@ -38,11 +42,10 @@ func AttachVersions(repo string, rows []models.VulnRow, fixes models.ComponentFi
 	matched := 0
 	for i, row := range out {
 		exp, ok := byArtifact[strings.Trim(row.ArtifactPath, "/")][row.IssueID]
-		if !ok || row.IssueID == "" {
+		if !ok {
 			continue
 		}
 		out[i].Fixes = componentFixes(exp)
-		out[i].FixesMatched = true
 		matched++
 	}
 
@@ -60,12 +63,16 @@ func componentFixes(exp []models.XrayExportRow) []models.ComponentFix {
 	index := map[string]int{}
 	fixes := []models.ComponentFix{}
 	for _, r := range exp {
-		label := componentLabel(r.SourceComponentID)
+		// Strip the "xxx://" scheme: "go://golang.org/x/net:0.59.0" → "golang.org/x/net:0.59.0".
+		label := r.SourceComponentID
+		if _, rest, ok := strings.Cut(label, "://"); ok {
+			label = rest
+		}
 		i, ok := index[label]
 		if !ok {
 			i = len(fixes)
 			index[label] = i
-			fixes = append(fixes, models.ComponentFix{Component: label, Fixed: []string{}})
+			fixes = append(fixes, models.ComponentFix{Component: label})
 		}
 		for _, v := range r.ComponentVersions.FixedVersions {
 			if !slices.Contains(fixes[i].Fixed, v) {
@@ -77,33 +84,32 @@ func componentFixes(exp []models.XrayExportRow) []models.ComponentFix {
 	return fixes
 }
 
-// componentLabel strips the "xxx://" scheme from an Xray component id, e.g.
-// "go://golang.org/x/net:0.59.0" → "golang.org/x/net:0.59.0". A value without
-// a scheme is returned as is.
-func componentLabel(id string) string {
-	if _, rest, ok := strings.Cut(id, "://"); ok {
-		return rest
-	}
-	return id
-}
-
 // ArtifactsWithFindings returns the Xray metadata of the scanned artifacts
 // that produced at least one report row, in summary order and without
-// duplicates. These are the artifacts worth a component export call.
+// duplicates. When the summary lists a path twice the last entry wins, as in
+// Build. These are the artifacts worth a component export call.
 func ArtifactsWithFindings(repo string, rows []models.VulnRow, summary models.XraySummary) []models.XrayGeneral {
 	withRows := make(map[string]bool, len(rows))
 	for _, r := range rows {
 		withRows[strings.Trim(r.ArtifactPath, "/")] = true
 	}
 
+	last := make(map[string]models.XrayArtifact, len(summary.Artifacts))
+	for _, xa := range summary.Artifacts {
+		last[normalizePath(repo, xa.General.Path)] = xa
+	}
+
 	out := []models.XrayGeneral{}
 	seen := map[string]bool{}
 	for _, xa := range summary.Artifacts {
 		key := normalizePath(repo, xa.General.Path)
-		if len(xa.Issues) == 0 || !withRows[key] || seen[key] {
+		if seen[key] {
 			continue
 		}
 		seen[key] = true
+		if xa = last[key]; len(xa.Issues) == 0 || !withRows[key] {
+			continue
+		}
 		out = append(out, xa.General)
 	}
 	return out

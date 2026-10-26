@@ -1,6 +1,7 @@
 package jfrog
 
 import (
+	"context"
 	"io"
 
 	"jfrog_manager/internal/models"
@@ -16,5 +17,7 @@ type Service interface {
 	DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error)
 	GetXraySummary(repo, path string) (models.XraySummary, error)
 	GetXraySummaries(repo string, paths []string) (models.XraySummary, error)
-	GetComponentFixes(artifacts []models.XrayGeneral) (models.ComponentFixes, error)
+	// GetComponentFixes honours ctx so a report load stops its export calls
+	// when the browser request goes away.
+	GetComponentFixes(ctx context.Context, artifacts []models.XrayGeneral) (models.ComponentFixes, error)
 }

@@ -101,8 +101,6 @@ type VulnRow struct {
 	// Fixes are the vulnerable components of this issue inside the artifact
 	// with the versions that fix them, from the Xray component export.
 	Fixes []ComponentFix
-	// FixesMatched is true when the component export had a row for this issue.
-	FixesMatched bool
 }
 
 // XrayExportRow is one issue × component row of an Xray component export.
@@ -129,6 +127,6 @@ type ComponentFixes struct {
 type ComponentFix struct {
 	// Component is the installed component and version, e.g. golang.org/x/net:0.59.0.
 	Component string
-	// Fixed lists the fixing versions, e.g. ["0.60.0"]; empty when Xray knows no fix.
+	// Fixed lists the fixing versions, e.g. ["0.60.0"]; nil when Xray knows no fix.
 	Fixed []string
 }

@@ -3,6 +3,7 @@ package jfrog
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -99,9 +100,14 @@ func TestGetComponentFixes_RequestAndDecode(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 			t.Errorf("decoding body: %v", err)
 		}
-		b, _ := json.Marshal(m)
+		b, err := json.Marshal(m)
+		if err != nil {
+			t.Errorf("re-encoding body: %v", err)
+		}
 		var req exportRequest
-		_ = json.Unmarshal(b, &req)
+		if err := json.Unmarshal(b, &req); err != nil {
+			t.Errorf("decoding request: %v", err)
+		}
 		mu.Lock()
 		got[req.SHA256] = req
 		raw = append(raw, m)
@@ -115,7 +121,7 @@ func TestGetComponentFixes_RequestAndDecode(t *testing.T) {
 	defer server.Close()
 
 	client := newExportClient(server.URL, 5*time.Second)
-	fixes, err := client.GetComponentFixes([]models.XrayGeneral{general("a.rpm", "sha-a"), general("b.rpm", "sha-b")})
+	fixes, err := client.GetComponentFixes(context.Background(), []models.XrayGeneral{general("a.rpm", "sha-a"), general("b.rpm", "sha-b")})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -167,7 +173,7 @@ func TestGetComponentFixes_EmptyInputMakesNoCalls(t *testing.T) {
 	}))
 	defer server.Close()
 
-	fixes, err := newExportClient(server.URL, time.Second).GetComponentFixes(nil)
+	fixes, err := newExportClient(server.URL, time.Second).GetComponentFixes(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,7 +201,7 @@ func TestGetComponentFixes_PerArtifactFailuresDegrade(t *testing.T) {
 	}))
 	defer server.Close()
 
-	fixes, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes([]models.XrayGeneral{
+	fixes, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes(context.Background(), []models.XrayGeneral{
 		general("missing.rpm", "sha-404"),
 		general("ok.rpm", "sha-ok"),
 		general("bad.rpm", "sha-400"),
@@ -214,33 +220,101 @@ func TestGetComponentFixes_PerArtifactFailuresDegrade(t *testing.T) {
 	}
 }
 
-func TestGetComponentFixes_DeadlineCountsSlowArtifacts(t *testing.T) {
+// setVar overrides a package-level setting for one test. Tests that use it
+// must not call t.Parallel.
+func setVar[T any](t *testing.T, v *T, val T) {
+	t.Helper()
+	orig := *v
+	*v = val
+	t.Cleanup(func() { *v = orig })
+}
+
+func TestGetComponentFixes_OneDeadlineSharedByAllCalls(t *testing.T) {
+	// One worker runs the calls one after another. Each fits in the timeout on
+	// its own, but not both: only a deadline shared by the whole load fails the
+	// second one.
+	setVar(t, &xrayExportWorkers, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := decodeExportRequest(t, r)
-		if strings.HasPrefix(req.SHA256, "slow") {
-			select {
-			case <-r.Context().Done():
-			case <-time.After(2 * time.Second):
-			}
+		decodeExportRequest(t, r)
+		select {
+		case <-r.Context().Done():
 			return
+		case <-time.After(700 * time.Millisecond):
 		}
 		writeZip(w, buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1")}))
 	}))
 	defer server.Close()
 
-	fixes, err := newExportClient(server.URL, 200*time.Millisecond).GetComponentFixes([]models.XrayGeneral{
-		general("fast.rpm", "fast"),
-		general("slow1.rpm", "slow1"),
-		general("slow2.rpm", "slow2"),
+	start := time.Now()
+	fixes, err := newExportClient(server.URL, time.Second).GetComponentFixes(context.Background(), []models.XrayGeneral{
+		general("first.rpm", "sha-1"),
+		general("second.rpm", "sha-2"),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if fixes.Failed != 2 {
-		t.Errorf("expected Failed 2, got %d", fixes.Failed)
+	if fixes.Failed != 1 {
+		t.Errorf("expected Failed 1, got %d", fixes.Failed)
 	}
-	if rows := fixes.ByArtifact["default/rpm-local/fast.rpm"]; len(rows) != 1 {
-		t.Errorf("expected the fast artifact's rows, got %+v", rows)
+	if rows := fixes.ByArtifact["default/rpm-local/first.rpm"]; len(rows) != 1 {
+		t.Errorf("expected the first artifact's rows, got %+v", rows)
+	}
+	if elapsed := time.Since(start); elapsed > 1800*time.Millisecond {
+		t.Errorf("expected the load to stop near the shared deadline, took %v", elapsed)
+	}
+}
+
+func TestGetComponentFixes_CanceledContextIsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Reading the body lets the server notice the client going away.
+		decodeExportRequest(t, r)
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(50*time.Millisecond, cancel)
+	_, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes(ctx, []models.XrayGeneral{general("a.rpm", "sha-a")})
+	if err == nil {
+		t.Fatal("expected an error when the request context is canceled")
+	}
+}
+
+func TestGetComponentFixes_ReadErrorAfterSuccessStatusDegrades(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := decodeExportRequest(t, r)
+		if req.SHA256 == "sha-ok" {
+			writeZip(w, buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1")}))
+			return
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("PK\x03\x04partial"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer server.Close()
+
+	fixes, err := newExportClient(server.URL, 500*time.Millisecond).GetComponentFixes(context.Background(), []models.XrayGeneral{
+		general("ok.rpm", "sha-ok"),
+		general("cut.rpm", "sha-cut"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fixes.Failed != 1 {
+		t.Errorf("expected Failed 1, got %d", fixes.Failed)
+	}
+	if rows := fixes.ByArtifact["default/rpm-local/ok.rpm"]; len(rows) != 1 {
+		t.Errorf("expected the healthy artifact's rows, got %+v", rows)
 	}
 }
 
@@ -255,7 +329,7 @@ func TestGetComponentFixes_SkipsMissingIdentifiers(t *testing.T) {
 	noID := general("noid.rpm", "sha-1")
 	noID.ComponentID = ""
 	noSHA := general("nosha.rpm", "")
-	fixes, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes([]models.XrayGeneral{
+	fixes, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes(context.Background(), []models.XrayGeneral{
 		noID, noSHA, general("ok.rpm", "sha-ok"),
 	})
 	if err != nil {
@@ -272,11 +346,13 @@ func TestGetComponentFixes_SkipsMissingIdentifiers(t *testing.T) {
 	}
 }
 
-func TestGetComponentFixes_MalformedBodiesAreErrors(t *testing.T) {
+func TestGetComponentFixes_MalformedBodiesDegrade(t *testing.T) {
 	tests := []struct {
-		name string
-		body func(t *testing.T) []byte
-		cap  int64
+		name    string
+		body    func(t *testing.T) []byte
+		jsonCap int64
+		// capZip lowers the zip cap to the healthy body's size.
+		capZip bool
 	}{
 		{name: "not a zip", body: func(t *testing.T) []byte { return []byte(`{"data":[]}`) }},
 		{name: "no json entry", body: func(t *testing.T) []byte {
@@ -285,53 +361,65 @@ func TestGetComponentFixes_MalformedBodiesAreErrors(t *testing.T) {
 		{name: "bad json", body: func(t *testing.T) []byte {
 			return buildZip(t, map[string]string{"x.json": "{not json"})
 		}},
-		{name: "oversized entry", cap: 64, body: func(t *testing.T) []byte {
+		{name: "oversized entry", jsonCap: 300, body: func(t *testing.T) []byte {
 			return buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1", "XRAY-2")})
+		}},
+		{name: "oversized body", capZip: true, body: func(t *testing.T) []byte {
+			return buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1", "XRAY-2", "XRAY-3", "XRAY-4")})
 		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.cap > 0 {
-				orig := xrayExportMaxJSONBytes
-				xrayExportMaxJSONBytes = tt.cap
-				defer func() { xrayExportMaxJSONBytes = orig }()
+			// The healthy body fits the lowered caps; only the bad one exceeds them.
+			healthy := buildZip(t, map[string]string{"x.json": exportJSON("XRAY-9")})
+			if tt.jsonCap > 0 {
+				setVar(t, &xrayExportMaxJSONBytes, tt.jsonCap)
 			}
-			body := tt.body(t)
+			bad := tt.body(t)
+			if tt.capZip {
+				if len(bad) <= len(healthy) {
+					t.Fatalf("test setup: bad body (%d bytes) must be larger than the healthy one (%d)", len(bad), len(healthy))
+				}
+				setVar(t, &xrayExportMaxZipBytes, int64(len(healthy)))
+			}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				writeZip(w, body)
+				if decodeExportRequest(t, r).SHA256 == "sha-ok" {
+					writeZip(w, healthy)
+					return
+				}
+				writeZip(w, bad)
 			}))
 			defer server.Close()
 
-			_, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes([]models.XrayGeneral{general("a.rpm", "sha-a")})
-			if err == nil {
-				t.Fatal("expected an error")
+			fixes, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes(context.Background(), []models.XrayGeneral{
+				general("ok.rpm", "sha-ok"),
+				general("bad.rpm", "sha-bad"),
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if fixes.Failed != 1 {
+				t.Errorf("expected Failed 1, got %d", fixes.Failed)
+			}
+			if rows := fixes.ByArtifact["default/rpm-local/ok.rpm"]; len(rows) != 1 || rows[0].IssueID != "XRAY-9" {
+				t.Errorf("expected the healthy artifact's rows, got %+v", rows)
+			}
+			if _, ok := fixes.ByArtifact["default/rpm-local/bad.rpm"]; ok {
+				t.Error("malformed artifact must not be in ByArtifact")
 			}
 		})
 	}
 }
 
-func TestGetComponentFixes_OversizedBodyIsError(t *testing.T) {
-	orig := xrayExportMaxZipBytes
-	xrayExportMaxZipBytes = 16
-	defer func() { xrayExportMaxZipBytes = orig }()
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writeZip(w, buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1")}))
-	}))
-	defer server.Close()
-
-	_, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes([]models.XrayGeneral{general("a.rpm", "sha-a")})
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-}
-
 func TestGetComponentFixes_WorkerPoolCoversAllArtifacts(t *testing.T) {
-	orig := xrayExportWorkers
-	xrayExportWorkers = 2
-	defer func() { xrayExportWorkers = orig }()
+	setVar(t, &xrayExportWorkers, 2)
 
+	// The first two calls wait for each other, so the test only passes when
+	// two run at once; peak shows no more than two ever do.
 	var inFlight, peak atomic.Int32
+	var arrived sync.WaitGroup
+	arrived.Add(2)
+	var seen atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := inFlight.Add(1)
 		defer inFlight.Add(-1)
@@ -341,7 +429,17 @@ func TestGetComponentFixes_WorkerPoolCoversAllArtifacts(t *testing.T) {
 				break
 			}
 		}
-		time.Sleep(10 * time.Millisecond)
+		if seen.Add(1) <= 2 {
+			arrived.Done()
+			done := make(chan struct{})
+			go func() { arrived.Wait(); close(done) }()
+			select {
+			case <-done:
+			case <-time.After(3 * time.Second):
+				t.Error("two export calls never ran at the same time")
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
 		writeZip(w, buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1")}))
 	}))
 	defer server.Close()
@@ -350,28 +448,14 @@ func TestGetComponentFixes_WorkerPoolCoversAllArtifacts(t *testing.T) {
 	for _, name := range []string{"a", "b", "c", "d", "e", "f", "g"} {
 		arts = append(arts, general(name+".rpm", "sha-"+name))
 	}
-	fixes, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes(arts)
+	fixes, err := newExportClient(server.URL, 10*time.Second).GetComponentFixes(context.Background(), arts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(fixes.ByArtifact) != 7 || fixes.Failed != 0 {
 		t.Errorf("expected 7 artifacts and no failures, got %d / %d", len(fixes.ByArtifact), fixes.Failed)
 	}
-	if peak.Load() > 2 {
-		t.Errorf("expected at most 2 concurrent calls, got %d", peak.Load())
-	}
-}
-
-func TestStripScheme(t *testing.T) {
-	tests := map[string]string{
-		"rpm://opcore:1.10.25":         "opcore:1.10.25",
-		"go://golang.org/x/net:0.59.0": "golang.org/x/net:0.59.0",
-		"opcore:1.10.25":               "opcore:1.10.25",
-		"":                             "",
-	}
-	for in, want := range tests {
-		if got := stripScheme(in); got != want {
-			t.Errorf("stripScheme(%q) = %q, want %q", in, got, want)
-		}
+	if peak.Load() != 2 {
+		t.Errorf("expected exactly 2 concurrent calls at peak, got %d", peak.Load())
 	}
 }

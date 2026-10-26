@@ -26,10 +26,6 @@ var (
 	xrayExportMaxJSONBytes int64 = 100 << 20
 )
 
-// errExportUnavailable marks a per-artifact failure (network error, non-2xx,
-// deadline) that degrades the report instead of failing it.
-var errExportUnavailable = errors.New("component export unavailable")
-
 // exportRequest is the body of POST /xray/api/v1/component/exportDetails.
 type exportRequest struct {
 	ComponentName   string `json:"component_name"`
@@ -44,8 +40,7 @@ type exportRequest struct {
 
 // exportResponse is the JSON entry inside the export zip.
 type exportResponse struct {
-	TotalCount int                    `json:"total_count"`
-	Data       []models.XrayExportRow `json:"data"`
+	Data []models.XrayExportRow `json:"data"`
 }
 
 // exportResult is the outcome of one artifact's export call.
@@ -56,17 +51,18 @@ type exportResult struct {
 
 // GetComponentFixes fetches the vulnerable components and fixed versions for
 // the given scanned artifacts from the Xray component export, one call per
-// artifact, xrayExportWorkers at a time, all bounded by one exportTimeout.
-// Per-artifact failures (missing component id or sha256, network error,
-// non-2xx, deadline) are counted in Failed and logged; a malformed 2xx body
-// is returned as an error.
-func (c Client) GetComponentFixes(artifacts []models.XrayGeneral) (models.ComponentFixes, error) {
+// artifact, xrayExportWorkers at a time, all bounded by one exportTimeout
+// derived from ctx. Every per-artifact failure (missing component id or
+// sha256, network error, non-2xx, deadline, malformed or oversized body) is
+// logged and counted in Failed; the other artifacts keep their rows. An error
+// is returned only when ctx itself is done, e.g. the browser went away.
+func (c Client) GetComponentFixes(ctx context.Context, artifacts []models.XrayGeneral) (models.ComponentFixes, error) {
 	fixes := models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{}}
 	if len(artifacts) == 0 {
 		return fixes, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.exportTimeout)
+	exportCtx, cancel := context.WithTimeout(ctx, c.exportTimeout)
 	defer cancel()
 
 	results := make([]exportResult, len(artifacts))
@@ -75,7 +71,7 @@ func (c Client) GetComponentFixes(artifacts []models.XrayGeneral) (models.Compon
 	for range min(xrayExportWorkers, len(artifacts)) {
 		wg.Go(func() {
 			for i := range jobs {
-				rows, err := c.exportComponent(ctx, artifacts[i])
+				rows, err := c.exportComponent(exportCtx, artifacts[i])
 				results[i] = exportResult{rows: rows, err: err}
 			}
 		})
@@ -86,17 +82,17 @@ func (c Client) GetComponentFixes(artifacts []models.XrayGeneral) (models.Compon
 	close(jobs)
 	wg.Wait()
 
+	if err := ctx.Err(); err != nil {
+		return models.ComponentFixes{}, fmt.Errorf("exporting component details: %w", err)
+	}
+
 	for i, res := range results {
-		path := artifacts[i].Path
 		if res.err != nil {
-			if errors.Is(res.err, errExportUnavailable) {
-				slog.Warn("xray component export failed", "path", path, "error", res.err)
-				fixes.Failed++
-				continue
-			}
-			return models.ComponentFixes{}, fmt.Errorf("exporting component details for %s: %w", path, res.err)
+			slog.Warn("xray component export failed", "path", artifacts[i].Path, "error", res.err)
+			fixes.Failed++
+			continue
 		}
-		fixes.ByArtifact[path] = res.rows
+		fixes.ByArtifact[artifacts[i].Path] = res.rows
 	}
 	return fixes, nil
 }
@@ -104,10 +100,14 @@ func (c Client) GetComponentFixes(artifacts []models.XrayGeneral) (models.Compon
 // exportComponent runs one export call and decodes its zipped JSON body.
 func (c Client) exportComponent(ctx context.Context, art models.XrayGeneral) ([]models.XrayExportRow, error) {
 	if art.ComponentID == "" || art.SHA256 == "" {
-		return nil, fmt.Errorf("%w: missing component id or sha256", errExportUnavailable)
+		return nil, errors.New("missing component id or sha256")
+	}
+	name := art.ComponentID
+	if _, rest, ok := strings.Cut(name, "://"); ok {
+		name = rest
 	}
 	body, err := json.Marshal(exportRequest{
-		ComponentName: stripScheme(art.ComponentID),
+		ComponentName: name,
 		PackageType:   strings.ToLower(art.PackageType),
 		SHA256:        art.SHA256,
 		Security:      true,
@@ -125,18 +125,18 @@ func (c Client) exportComponent(ctx context.Context, art models.XrayGeneral) ([]
 
 	resp, err := c.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errExportUnavailable, err)
+		return nil, fmt.Errorf("calling export: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// Error bodies are not reliable JSON; decide on the status code alone.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("%w: status %d", errExportUnavailable, resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
 	zipped, err := io.ReadAll(io.LimitReader(resp.Body, xrayExportMaxZipBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("%w: reading body: %w", errExportUnavailable, err)
+		return nil, fmt.Errorf("reading body: %w", err)
 	}
 	if int64(len(zipped)) > xrayExportMaxZipBytes {
 		return nil, fmt.Errorf("export body exceeds %d bytes", xrayExportMaxZipBytes)
@@ -154,31 +154,26 @@ func decodeExportZip(zipped []byte) ([]models.XrayExportRow, error) {
 		if !strings.HasSuffix(strings.ToLower(f.Name), ".json") {
 			continue
 		}
+		if f.UncompressedSize64 > uint64(xrayExportMaxJSONBytes) {
+			return nil, fmt.Errorf("export entry %s exceeds %d bytes", f.Name, xrayExportMaxJSONBytes)
+		}
 		rc, err := f.Open()
 		if err != nil {
 			return nil, fmt.Errorf("opening export entry %s: %w", f.Name, err)
 		}
-		data, err := io.ReadAll(io.LimitReader(rc, xrayExportMaxJSONBytes+1))
+		// Decode as a stream so only the kept fields are held in memory; the
+		// limited reader also guards against a header that understates the size.
+		limited := &io.LimitedReader{R: rc, N: xrayExportMaxJSONBytes + 1}
+		var out exportResponse
+		err = json.NewDecoder(limited).Decode(&out)
 		_ = rc.Close()
-		if err != nil {
-			return nil, fmt.Errorf("reading export entry %s: %w", f.Name, err)
-		}
-		if int64(len(data)) > xrayExportMaxJSONBytes {
+		if limited.N <= 0 {
 			return nil, fmt.Errorf("export entry %s exceeds %d bytes", f.Name, xrayExportMaxJSONBytes)
 		}
-		var out exportResponse
-		if err := json.Unmarshal(data, &out); err != nil {
+		if err != nil {
 			return nil, fmt.Errorf("parsing export entry %s: %w", f.Name, err)
 		}
 		return out.Data, nil
 	}
 	return nil, errors.New("export zip has no .json entry")
-}
-
-// stripScheme removes a leading "xxx://" from a component id.
-func stripScheme(id string) string {
-	if i := strings.Index(id, "://"); i >= 0 {
-		return id[i+3:]
-	}
-	return id
 }
