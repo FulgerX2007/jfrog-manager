@@ -156,7 +156,9 @@
         .o-side-btn[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 600; }
         .o-count { font-family: var(--font-mono); font-size: 12px; }
         .o-content { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-        .o-report { display: flex; flex-direction: column; gap: 16px; max-width: 1280px; margin: 0 auto; width: 100%; }
+        .o-report { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+        /* The vulnerability report uses the full page width; other pages keep the o-main limit. */
+        .o-main:has(.o-report) { max-width: none; }
         .o-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
         .o-head h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
         .o-sub { color: var(--muted); margin-top: 2px; }
@@ -376,7 +378,8 @@
         .o-skel-bar, .o-skel-pill { height: 12px; border-radius: 6px; background: var(--line); animation: o-pulse 1.2s ease-in-out infinite; }
         .o-skel-pill { width: 64px; height: 18px; }
         @keyframes o-pulse { 50% { opacity: 0.45; } }
-        .o-findings { width: 100%; min-width: 1000px; border-collapse: collapse; background: var(--surface); }
+        /* Fixed layout: columns share the card width and long values wrap, so the table never grows past it. */
+        .o-findings { width: 100%; min-width: 760px; table-layout: fixed; border-collapse: collapse; background: var(--surface); }
         .o-findings th {
             text-align: left;
             padding: 8px 12px;
@@ -390,13 +393,14 @@
         .o-findings td { padding: 12px; border-top: 1px solid var(--line-soft); vertical-align: top; }
         .o-findings th:first-child, .o-findings td:first-child { padding-left: 16px; }
         .o-findings th:last-child, .o-findings td:last-child { padding-right: 16px; }
-        .o-findings .col-sev { width: 100px; }
-        .o-findings .col-id { width: 150px; }
-        .o-findings .col-pkg { width: 150px; }
-        .o-findings .col-ver { width: 210px; }
-        .o-findings .col-fix { width: 120px; }
-        .o-findings .col-src { width: 28%; }
-        .o-fix-line { display: block; white-space: nowrap; line-height: 20px; }
+        .o-findings td { overflow-wrap: anywhere; }
+        .o-findings .col-sev { width: 96px; }
+        .o-findings .col-id { width: 140px; }
+        .o-findings .col-pkg { width: 9%; }
+        .o-findings .col-ver { width: 18%; }
+        .o-findings .col-fix { width: 13%; }
+        .o-findings .col-src { width: 20%; }
+        .o-fix-line { display: block; line-height: 20px; }
         .o-fix-line + .o-fix-line { margin-top: 4px; }
         .o-finding-ids code { display: block; white-space: nowrap; }
         .o-impact { display: block; font-weight: 500; color: var(--ink); word-break: break-all; }
