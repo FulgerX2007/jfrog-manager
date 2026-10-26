@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -27,6 +28,11 @@ type mockService struct {
 	xray      models.XraySummary
 	xrayErr   error
 	xrayPaths []string
+
+	fixes          models.ComponentFixes
+	fixesErr       error
+	fixesArtifacts []models.XrayGeneral
+	fixesCalls     int
 
 	downloadBody        string
 	downloadContentType string
@@ -67,6 +73,12 @@ func (m *mockService) GetXraySummary(repo, path string) (models.XraySummary, err
 func (m *mockService) GetXraySummaries(repo string, paths []string) (models.XraySummary, error) {
 	m.xrayPaths = paths
 	return m.xray, m.xrayErr
+}
+
+func (m *mockService) GetComponentFixes(ctx context.Context, artifacts []models.XrayGeneral) (models.ComponentFixes, error) {
+	m.fixesCalls++
+	m.fixesArtifacts = artifacts
+	return m.fixes, m.fixesErr
 }
 
 func (m *mockService) DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error) {

@@ -39,13 +39,14 @@ func TestWriteCSV_HeaderAndRow(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("expected header and 1 row, got %d records", len(records))
 	}
-	wantHeader := []string{"Component", "Package", "Artifact", "Severity", "Issue ID", "CVEs", "Summary", "Impact Path"}
+	wantHeader := []string{"Component", "Package", "Artifact", "Severity", "Issue ID", "CVEs", "Vulnerable Version", "Fixed Version", "Summary", "Impact Path"}
 	if !equalStrings(records[0], wantHeader) {
 		t.Errorf("unexpected header: %v", records[0])
 	}
 	want := []string{
 		"opcore", "opcore", "portal/opcore/opcore-v1.0.x86_64.rpm", "High", "XRAY-1",
 		"CVE-2026-1; CVE-2026-2",
+		"", "",
 		"Overflow in \"parser\", with commas\nand a newline",
 		"opt/bin/opcore/mod/a | opt/bin/tool/mod/a",
 	}
@@ -77,11 +78,64 @@ func TestWriteCSV_GuardsFormulaCells(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.summary, func(t *testing.T) {
 			records := writeAndParse(t, []models.VulnRow{{Component: "=cmd", Summary: tt.summary}})
-			if got := records[1][6]; got != tt.want {
+			if got := records[1][8]; got != tt.want {
 				t.Errorf("summary cell = %q, want %q", got, tt.want)
 			}
 			if got := records[1][0]; got != "'=cmd" {
 				t.Errorf("guard must apply to every column, component cell = %q", got)
+			}
+		})
+	}
+}
+
+func TestWriteCSV_VersionColumns(t *testing.T) {
+	tests := []struct {
+		name      string
+		row       models.VulnRow
+		wantVuln  string
+		wantFixed string
+	}{
+		{
+			name: "several components",
+			row: models.VulnRow{Fixes: []models.ComponentFix{
+				{Component: "golang.org/x/net:0.58.0", Fixed: []string{"0.60.0"}},
+				{Component: "golang.org/x/net:0.59.0", Fixed: []string{"0.60.0", "0.61.1"}},
+			}},
+			wantVuln:  "golang.org/x/net:0.58.0; golang.org/x/net:0.59.0",
+			wantFixed: "0.60.0; 0.60.0, 0.61.1",
+		},
+		{
+			name: "empty fixed list",
+			row: models.VulnRow{Fixes: []models.ComponentFix{
+				{Component: "lodash:4.17.20"},
+				{Component: "openssl:3.0.1", Fixed: []string{"3.0.2"}},
+			}},
+			wantVuln:  "lodash:4.17.20; openssl:3.0.1",
+			wantFixed: "none; 3.0.2",
+		},
+		{
+			name:      "unmatched row",
+			row:       models.VulnRow{},
+			wantVuln:  "",
+			wantFixed: "",
+		},
+		{
+			name: "formula guard",
+			row: models.VulnRow{Fixes: []models.ComponentFix{
+				{Component: "=cmd|calc", Fixed: []string{"-1+1"}},
+			}},
+			wantVuln:  "'=cmd|calc",
+			wantFixed: "'-1+1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			records := writeAndParse(t, []models.VulnRow{tt.row})
+			if got := records[1][6]; got != tt.wantVuln {
+				t.Errorf("vulnerable version cell = %q, want %q", got, tt.wantVuln)
+			}
+			if got := records[1][7]; got != tt.wantFixed {
+				t.Errorf("fixed version cell = %q, want %q", got, tt.wantFixed)
 			}
 		})
 	}

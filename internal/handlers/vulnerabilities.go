@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"mime"
@@ -34,6 +35,9 @@ type vulnerabilityResult struct {
 	available bool
 	// excluded is the number of older files left out of the report.
 	excluded int
+	// fixesFailed is the number of artifacts whose vulnerable and fixed
+	// versions could not be retrieved.
+	fixesFailed int
 }
 
 // parseVulnerabilityQuery reads and validates the report parameters.
@@ -54,7 +58,7 @@ func (h Handler) parseVulnerabilityQuery(c *gin.Context) (vulnerabilityQuery, bo
 
 // buildVulnerabilityReport lists the repository, keeps the latest artifact of
 // each package, asks Xray about those only and returns the report.
-func (h Handler) buildVulnerabilityReport(q vulnerabilityQuery) (vulnerabilityResult, error) {
+func (h Handler) buildVulnerabilityReport(ctx context.Context, q vulnerabilityQuery) (vulnerabilityResult, error) {
 	artifacts, err := h.service.ListArtifacts(q.repo)
 	if err != nil {
 		return vulnerabilityResult{}, fmt.Errorf("listing artifacts: %w", err)
@@ -75,8 +79,35 @@ func (h Handler) buildVulnerabilityReport(q vulnerabilityQuery) (vulnerabilityRe
 	}
 
 	rep := report.Build(q.repo, latest, summary)
+	withFixes, fixesFailed := h.attachFixes(ctx, q.repo, rep.Rows, summary)
+	rep.Rows = withFixes
 	rows := report.SortRows(report.FilterBySeverity(rep.Rows, q.severity), q.sort, q.dir)
-	return vulnerabilityResult{report: rep, rows: rows, available: true, excluded: len(artifacts) - len(latest)}, nil
+	return vulnerabilityResult{
+		report:      rep,
+		rows:        rows,
+		available:   true,
+		excluded:    len(artifacts) - len(latest),
+		fixesFailed: fixesFailed,
+	}, nil
+}
+
+// attachFixes asks Xray for the vulnerable and fixed versions of the artifacts
+// that have findings and joins them onto the rows. It never fails: artifacts
+// whose versions can't be retrieved keep their rows without them, and their
+// number is returned. When the whole call fails (the request went away) all
+// targets count as failed.
+func (h Handler) attachFixes(ctx context.Context, repo string, rows []models.VulnRow, summary models.XraySummary) ([]models.VulnRow, int) {
+	targets := report.ArtifactsWithFindings(repo, rows, summary)
+	if len(targets) == 0 {
+		return rows, 0
+	}
+
+	fixes, err := h.service.GetComponentFixes(ctx, targets)
+	if err != nil {
+		slog.Warn("getting xray component fixes", "error", err, "artifacts", len(targets))
+		return rows, len(targets)
+	}
+	return report.AttachVersions(repo, rows, fixes), fixes.Failed
 }
 
 // severityTile is one entry of the severity filter of the report.
@@ -95,7 +126,7 @@ func (h Handler) GetVulnerabilities(c *gin.Context) {
 		return
 	}
 
-	res, err := h.buildVulnerabilityReport(q)
+	res, err := h.buildVulnerabilityReport(c.Request.Context(), q)
 	if err != nil {
 		slog.Error("building vulnerability report", "error", err)
 		h.renderError(c, "Failed to load vulnerabilities")
@@ -111,19 +142,20 @@ func (h Handler) GetVulnerabilities(c *gin.Context) {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	data := map[string]any{
-		"Repo":       q.repo,
-		"Sort":       q.sort,
-		"Dir":        q.dir,
-		"Severity":   q.severity,
-		"Available":  res.available,
-		"Total":      len(res.report.Rows),
-		"Shown":      len(res.rows),
-		"Tiles":      tiles,
-		"Groups":     report.GroupRows(res.rows, q.sort, q.dir),
-		"Scanned":    res.report.Scanned,
-		"NotScanned": res.report.NotScanned,
-		"Clean":      res.report.Clean,
-		"Excluded":   res.excluded,
+		"Repo":        q.repo,
+		"Sort":        q.sort,
+		"Dir":         q.dir,
+		"Severity":    q.severity,
+		"Available":   res.available,
+		"Total":       len(res.report.Rows),
+		"Shown":       len(res.rows),
+		"Tiles":       tiles,
+		"Groups":      report.GroupRows(res.rows, q.sort, q.dir),
+		"Scanned":     res.report.Scanned,
+		"NotScanned":  res.report.NotScanned,
+		"Clean":       res.report.Clean,
+		"Excluded":    res.excluded,
+		"FixesFailed": res.fixesFailed,
 	}
 	if err := h.tmpl.ExecuteTemplate(c.Writer, "vuln_report", data); err != nil {
 		slog.Error("rendering vulnerability report", "error", err)
@@ -138,7 +170,7 @@ func (h Handler) ExportVulnerabilities(c *gin.Context) {
 		return
 	}
 
-	res, err := h.buildVulnerabilityReport(q)
+	res, err := h.buildVulnerabilityReport(c.Request.Context(), q)
 	if err != nil {
 		slog.Error("building vulnerability export", "error", err)
 		h.renderError(c, "Failed to export vulnerabilities")

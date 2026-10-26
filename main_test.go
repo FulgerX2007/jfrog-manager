@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -43,6 +44,10 @@ func (m mockService) GetXraySummary(repo, path string) (models.XraySummary, erro
 
 func (m mockService) GetXraySummaries(repo string, paths []string) (models.XraySummary, error) {
 	return models.XraySummary{Available: true}, nil
+}
+
+func (m mockService) GetComponentFixes(ctx context.Context, artifacts []models.XrayGeneral) (models.ComponentFixes, error) {
+	return models.ComponentFixes{}, nil
 }
 
 func (m mockService) DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error) {

@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"encoding/csv"
 	"errors"
 	"html"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -299,11 +301,11 @@ func TestExportVulnerabilities_Success(t *testing.T) {
 	if len(records) != 4 {
 		t.Fatalf("expected header and 3 rows, got %d records", len(records))
 	}
-	if records[0][0] != "Component" || records[0][7] != "Impact Path" {
+	if records[0][0] != "Component" || records[0][6] != "Vulnerable Version" || records[0][7] != "Fixed Version" || records[0][9] != "Impact Path" {
 		t.Errorf("unexpected header: %v", records[0])
 	}
 	// Component ascending, most severe first inside a component.
-	gotOrder := []string{records[1][6], records[2][6], records[3][6]}
+	gotOrder := []string{records[1][8], records[2][8], records[3][8]}
 	wantOrder := []string{"Critical issue in opcontrol", "Low issue in opcontrol", "High issue in opcore"}
 	if strings.Join(gotOrder, "|") != strings.Join(wantOrder, "|") {
 		t.Errorf("unexpected row order: %v", gotOrder)
@@ -311,8 +313,8 @@ func TestExportVulnerabilities_Success(t *testing.T) {
 	if records[3][0] != "opcore" || records[3][2] != "portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm" {
 		t.Errorf("unexpected opcore row: %v", records[3])
 	}
-	if records[3][7] != "opt/opcore/bin/opcore/github.com/pelletier/go-toml/v2" {
-		t.Errorf("unexpected impact path cell: %q", records[3][7])
+	if records[3][9] != "opt/opcore/bin/opcore/github.com/pelletier/go-toml/v2" {
+		t.Errorf("unexpected impact path cell: %q", records[3][9])
 	}
 }
 
@@ -342,4 +344,339 @@ func TestExportVulnerabilities_SeverityFilter(t *testing.T) {
 	if len(records) != 2 || records[1][3] != "High" || records[1][0] != "opcore" {
 		t.Errorf("expected only the high finding, got %v", records)
 	}
+}
+
+func TestExportVulnerabilities_IncludesVersions(t *testing.T) {
+	mock := vulnMock()
+	mock.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{
+		"default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm": {
+			{IssueID: "XRAY-20", SourceComponentID: "go://github.com/pelletier/go-toml/v2:2.0.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"2.0.1"}}},
+		},
+	}}
+	w := getVulnerabilities(mock, "/vulnerabilities/export?repo=rpm-stable&severity=high")
+
+	records, err := csv.NewReader(w.Body).ReadAll()
+	if err != nil {
+		t.Fatalf("response is not valid CSV: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("expected header and 1 row, got %v", records)
+	}
+	if records[1][6] != "github.com/pelletier/go-toml/v2:2.0.0" || records[1][7] != "2.0.1" {
+		t.Errorf("unexpected version cells: %q, %q", records[1][6], records[1][7])
+	}
+}
+
+func buildReport(t *testing.T, mock *mockService, q vulnerabilityQuery) vulnerabilityResult {
+	t.Helper()
+	h := NewHandler(mock, nil, "")
+	res, err := h.buildVulnerabilityReport(context.Background(), q)
+	if err != nil {
+		t.Fatalf("buildVulnerabilityReport: %v", err)
+	}
+	return res
+}
+
+func TestBuildVulnerabilityReport_AttachesFixes(t *testing.T) {
+	mock := vulnMock()
+	mock.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{
+		"default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm": {
+			{IssueID: "XRAY-20", SourceComponentID: "go://github.com/pelletier/go-toml/v2:2.0.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"2.0.1"}}},
+		},
+	}}
+	res := buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
+
+	if res.fixesFailed != 0 {
+		t.Errorf("expected no failed exports, got %d", res.fixesFailed)
+	}
+	if len(res.rows) != 3 || len(res.report.Rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d filtered and %d total", len(res.rows), len(res.report.Rows))
+	}
+	for _, rows := range [][]models.VulnRow{res.rows, res.report.Rows} {
+		for _, row := range rows {
+			if row.IssueID != "XRAY-20" {
+				if len(row.Fixes) != 0 {
+					t.Errorf("row %s must not carry fixes, got %+v", row.IssueID, row.Fixes)
+				}
+				continue
+			}
+			want := []models.ComponentFix{{Component: "github.com/pelletier/go-toml/v2:2.0.0", Fixed: []string{"2.0.1"}}}
+			if !reflect.DeepEqual(row.Fixes, want) {
+				t.Errorf("row XRAY-20: got fixes=%+v, want %+v", row.Fixes, want)
+			}
+		}
+	}
+}
+
+func TestBuildVulnerabilityReport_PassesOnlyArtifactsWithFindings(t *testing.T) {
+	mock := vulnMock()
+	mock.artifacts = append(mock.artifacts, vulnArtifact("portal/clean/clean-v1.0.0-aaaa.x86_64.rpm", "2026-10-01T00:00:00.000Z"))
+	mock.xray.Artifacts = append(mock.xray.Artifacts, models.XrayArtifact{
+		General: models.XrayGeneral{Path: "default/rpm-stable/portal/clean/clean-v1.0.0-aaaa.x86_64.rpm"},
+	})
+	buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
+
+	got := make([]string, 0, len(mock.fixesArtifacts))
+	for _, g := range mock.fixesArtifacts {
+		got = append(got, g.Path)
+	}
+	want := []string{
+		"default/rpm-stable/portal/opcontrol/opcontrol-v1.10.52-5608d1c8.x86_64.rpm",
+		"default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("fixes requested for %v, want %v", got, want)
+	}
+}
+
+func TestBuildVulnerabilityReport_FixesPartiallyFailed(t *testing.T) {
+	mock := vulnMock()
+	mock.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{}, Failed: 1}
+	res := buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
+	if res.fixesFailed != 1 {
+		t.Errorf("expected 1 failed export, got %d", res.fixesFailed)
+	}
+}
+
+func TestVulnerabilities_FixesErrorStillRenders(t *testing.T) {
+	mock := vulnMock()
+	mock.fixesErr = errors.New("request canceled")
+
+	res := buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
+	if res.fixesFailed != 2 {
+		t.Errorf("expected both artifacts counted as failed, got %d", res.fixesFailed)
+	}
+	if len(res.rows) != 3 {
+		t.Fatalf("expected all 3 rows kept, got %d", len(res.rows))
+	}
+	for _, row := range res.rows {
+		if len(row.Fixes) != 0 {
+			t.Errorf("row %s must not carry fixes after an error", row.IssueID)
+		}
+	}
+
+	w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	if !strings.Contains(html.UnescapeString(w.Body.String()), "Critical issue in opcontrol") {
+		t.Error("expected the findings to render despite the fixes error")
+	}
+
+	w = getVulnerabilities(mock, "/vulnerabilities/export?repo=rpm-stable")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected export status 200, got %d", w.Code)
+	}
+	records, err := csv.NewReader(w.Body).ReadAll()
+	if err != nil {
+		t.Fatalf("response is not valid CSV: %v", err)
+	}
+	if len(records) != 4 {
+		t.Fatalf("expected header and 3 rows, got %d records", len(records))
+	}
+	for _, rec := range records[1:] {
+		if rec[6] != "" || rec[7] != "" {
+			t.Errorf("expected empty version cells after an error, got %q, %q", rec[6], rec[7])
+		}
+	}
+}
+
+func TestVulnerabilities_NoFixesCallWithoutSummaryOrFindings(t *testing.T) {
+	unavailable := vulnMock()
+	unavailable.xray = models.XraySummary{Available: false}
+	clean := vulnMock()
+	for i := range clean.xray.Artifacts {
+		clean.xray.Artifacts[i].Issues = nil
+	}
+
+	for name, mock := range map[string]*mockService{"unavailable": unavailable, "no findings": clean} {
+		t.Run(name, func(t *testing.T) {
+			mock.fixesErr = errors.New("must not be called")
+			w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected status 200, got %d", w.Code)
+			}
+			if mock.fixesCalls != 0 {
+				t.Errorf("expected no fixes call, got %d (%v)", mock.fixesCalls, mock.fixesArtifacts)
+			}
+		})
+	}
+}
+
+// findingRow returns the <tr> of the rendered report that mentions summary.
+func findingRow(t *testing.T, body, summary string) string {
+	t.Helper()
+	idx := strings.Index(body, summary)
+	if idx < 0 {
+		t.Fatalf("summary %q not found in output", summary)
+	}
+	start := strings.LastIndex(body[:idx], "<tr>")
+	end := strings.Index(body[idx:], "</tr>")
+	if start < 0 || end < 0 {
+		t.Fatalf("no table row around %q", summary)
+	}
+	return body[start : idx+end]
+}
+
+func TestGetVulnerabilities_RendersVersionColumns(t *testing.T) {
+	mock := vulnMock()
+	mock.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{
+		"default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm": {
+			{IssueID: "XRAY-20", SourceComponentID: "go://golang.org/x/net:0.59.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"0.60.0"}}},
+			{IssueID: "XRAY-20", SourceComponentID: "go://golang.org/x/net:0.58.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"0.60.0", "0.59.1"}}},
+		},
+		"default/rpm-stable/portal/opcontrol/opcontrol-v1.10.52-5608d1c8.x86_64.rpm": {
+			{IssueID: "XRAY-11", SourceComponentID: "npm://<script>x</script>:1.0", ComponentVersions: models.XrayComponentVersions{}},
+			{IssueID: "XRAY-11", SourceComponentID: "rpm://zlib:1.2", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"1.3"}}},
+		},
+	}}
+	w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+
+	assertOrder(t, body, ">Package</th>", ">Vulnerable version</th>", ">Fixed version</th>", ">Summary</th>")
+	if strings.Contains(body, "<script>x</script>") {
+		t.Error("component must be HTML-escaped")
+	}
+	if strings.Contains(body, "could not be retrieved for") {
+		t.Error("notice must not show when all exports succeeded")
+	}
+
+	// several components: one line each, the same order in both cells
+	opcore := findingRow(t, body, "High issue in opcore")
+	assertOrder(t, opcore,
+		"<code>golang.org/x/net:0.58.0</code>", "<code>golang.org/x/net:0.59.0</code>",
+		"<code>0.60.0, 0.59.1</code>", "<code>0.60.0</code>")
+	if strings.Count(opcore, `class="o-fix-line"`) != 4 {
+		t.Errorf("expected two aligned lines per cell, got %q", opcore)
+	}
+	if strings.Contains(opcore, "No fix available") {
+		t.Error("fixed row must not say no fix available")
+	}
+
+	// one unfixed and one fixed component: the titled dash and the fix line
+	// up with their components
+	critical := findingRow(t, body, "Critical issue in opcontrol")
+	assertOrder(t, critical,
+		"<code>&lt;script&gt;x&lt;/script&gt;:1.0</code>", "<code>zlib:1.2</code>",
+		`<span class="o-fix-line"><span class="o-muted" title="No fix available">&mdash;</span></span>`,
+		`<span class="o-fix-line"><code>1.3</code></span>`)
+	if strings.Count(critical, `class="o-fix-line"`) != 4 {
+		t.Errorf("expected two aligned lines per cell, got %q", critical)
+	}
+
+	// unmatched: plain dashes in both cells
+	low := findingRow(t, body, "Low issue in opcontrol")
+	if strings.Contains(low, "No fix available") || strings.Contains(low, "o-fix-line") {
+		t.Errorf("unmatched row must show plain dashes, got %q", low)
+	}
+	dash := `<td><span class="o-muted">&mdash;</span></td>`
+	assertOrder(t, low, ">opcontrol</td>", dash, dash, "Low issue in opcontrol")
+	if strings.Count(body, `title="No fix available"`) != 1 {
+		t.Errorf("expected exactly one no-fix title, got %d", strings.Count(body, `title="No fix available"`))
+	}
+}
+
+func TestGetVulnerabilities_FixesNotice(t *testing.T) {
+	const notice = "Vulnerable and fixed versions could not be retrieved for 1 package."
+
+	partial := vulnMock()
+	partial.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{}, Failed: 1}
+	w := getVulnerabilities(partial, "/vulnerabilities?repo=rpm-stable")
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), notice) {
+		t.Errorf("expected the notice when an export failed (status %d)", w.Code)
+	}
+}
+
+func TestGetVulnerabilities_AllFixesFailedShowsDashesAndNotice(t *testing.T) {
+	mock := vulnMock()
+	mock.fixesErr = errors.New("request canceled")
+	w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Vulnerable and fixed versions could not be retrieved for 2 packages.") {
+		t.Error("expected the notice counting both packages with findings")
+	}
+	if strings.Contains(body, "o-fix-line") || strings.Contains(body, "No fix available") {
+		t.Error("no version lines may render when every export failed")
+	}
+	dash := `<td><span class="o-muted">&mdash;</span></td>`
+	for _, summary := range []string{"Critical issue in opcontrol", "Low issue in opcontrol", "High issue in opcore"} {
+		row := findingRow(t, body, summary)
+		if strings.Count(row, dash) < 2 {
+			t.Errorf("expected dashes in both version cells of %q, got %q", summary, row)
+		}
+	}
+}
+
+// TestGetVulnerabilities_FixesKeepExistingBehaviour checks that attaching fixes
+// (with one export failed) changes neither not-scanned handling, the severity
+// filter, sorting nor the clean list.
+func TestGetVulnerabilities_FixesKeepExistingBehaviour(t *testing.T) {
+	withFixes := func() *mockService {
+		mock := vulnMock()
+		mock.fixes = models.ComponentFixes{
+			ByArtifact: map[string][]models.XrayExportRow{
+				"default/rpm-stable/portal/opcontrol/opcontrol-v1.10.52-5608d1c8.x86_64.rpm": {
+					{IssueID: "XRAY-11", SourceComponentID: "go://golang.org/x/net:0.59.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"0.60.0"}}},
+				},
+			},
+			Failed: 1,
+		}
+		return mock
+	}
+
+	t.Run("not scanned", func(t *testing.T) {
+		body := html.UnescapeString(getVulnerabilities(withFixes(), "/vulnerabilities?repo=rpm-stable").Body.String())
+		for _, s := range []string{"Findings: 3", "Packages scanned: 2", "Not scanned: 1", "Packages not scanned by Xray: 1", "portal/sso/sso-v1.10.15-cc1a8b75.x86_64.rpm"} {
+			if !strings.Contains(body, s) {
+				t.Errorf("expected output to contain %q", s)
+			}
+		}
+		assertOrder(t, body, "Critical issue in opcontrol", "Low issue in opcontrol", "High issue in opcore")
+	})
+
+	t.Run("sort", func(t *testing.T) {
+		body := html.UnescapeString(getVulnerabilities(withFixes(), "/vulnerabilities?repo=rpm-stable&sort=component&dir=desc").Body.String())
+		assertOrder(t, body, "High issue in opcore", "Critical issue in opcontrol", "Low issue in opcontrol")
+	})
+
+	t.Run("severity filter", func(t *testing.T) {
+		body := html.UnescapeString(getVulnerabilities(withFixes(), "/vulnerabilities?repo=rpm-stable&severity=Critical").Body.String())
+		if !strings.Contains(body, "Critical issue in opcontrol") || !strings.Contains(body, "<code>golang.org/x/net:0.59.0</code>") {
+			t.Error("expected the critical finding with its versions")
+		}
+		if strings.Contains(body, "High issue in opcore") || strings.Contains(body, "Low issue in opcontrol") {
+			t.Error("findings of other severities must not be listed")
+		}
+		if !strings.Contains(body, "Findings: 3") {
+			t.Error("expected the unfiltered total in the header")
+		}
+
+		w := getVulnerabilities(withFixes(), "/vulnerabilities/export?repo=rpm-stable&severity=critical")
+		records, err := csv.NewReader(w.Body).ReadAll()
+		if err != nil {
+			t.Fatalf("response is not valid CSV: %v", err)
+		}
+		if len(records) != 2 || records[1][6] != "golang.org/x/net:0.59.0" || records[1][7] != "0.60.0" {
+			t.Errorf("expected one filtered CSV row with versions, got %v", records)
+		}
+	})
+
+	t.Run("clean list", func(t *testing.T) {
+		mock := withFixes()
+		mock.xray.Artifacts[1].Issues = nil
+		body := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable").Body.String()
+		if !strings.Contains(body, "scanned and clean: 1") || !strings.Contains(body, `<span class="o-clean" title="portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm">`) {
+			t.Error("expected opcore to be listed as scanned and clean")
+		}
+		if strings.Contains(body, `title="portal/sso/sso-v1.10.15-cc1a8b75.x86_64.rpm">sso`) {
+			t.Error("a package Xray did not scan must not be listed as clean")
+		}
+	})
 }

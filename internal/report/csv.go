@@ -8,7 +8,7 @@ import (
 	"jfrog_manager/internal/models"
 )
 
-var csvHeader = []string{"Component", "Package", "Artifact", "Severity", "Issue ID", "CVEs", "Summary", "Impact Path"}
+var csvHeader = []string{"Component", "Package", "Artifact", "Severity", "Issue ID", "CVEs", "Vulnerable Version", "Fixed Version", "Summary", "Impact Path"}
 
 // WriteCSV writes the rows as CSV, one line per vulnerability, with a header row.
 func WriteCSV(w io.Writer, rows []models.VulnRow) error {
@@ -24,6 +24,8 @@ func WriteCSV(w io.Writer, rows []models.VulnRow) error {
 			r.Severity,
 			r.IssueID,
 			strings.Join(r.CVEs, "; "),
+			vulnerableVersions(r.Fixes),
+			fixedVersions(r.Fixes),
 			r.Summary,
 			strings.Join(r.ImpactPaths, " | "),
 		}
@@ -36,6 +38,31 @@ func WriteCSV(w io.Writer, rows []models.VulnRow) error {
 	}
 	writer.Flush()
 	return writer.Error()
+}
+
+// vulnerableVersions joins the vulnerable components of a row with "; ".
+// A row without fixes (no export match) yields an empty cell.
+func vulnerableVersions(fixes []models.ComponentFix) string {
+	parts := make([]string, len(fixes))
+	for i, f := range fixes {
+		parts[i] = f.Component
+	}
+	return strings.Join(parts, "; ")
+}
+
+// fixedVersions lists the fixed versions per component, in the same order as
+// vulnerableVersions: each list joined with ", ", entries joined with "; ".
+// A component Xray knows no fix for is written as "none".
+func fixedVersions(fixes []models.ComponentFix) string {
+	parts := make([]string, len(fixes))
+	for i, f := range fixes {
+		if len(f.Fixed) == 0 {
+			parts[i] = "none"
+			continue
+		}
+		parts[i] = strings.Join(f.Fixed, ", ")
+	}
+	return strings.Join(parts, "; ")
 }
 
 // guardCell neutralises spreadsheet formula injection: a cell that would be

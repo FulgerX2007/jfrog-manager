@@ -37,15 +37,15 @@ func TestGetXray_WithVulnerabilities(t *testing.T) {
 				{
 					Issues: []models.XrayIssue{
 						{
-							Severity: "Critical",
-							Summary:  "Remote code execution",
-							CVEs:     []models.XrayCVE{{ID: "CVE-2024-1234"}},
+							Severity:   "Critical",
+							Summary:    "Remote code execution",
+							CVEs:       []models.XrayCVE{{ID: "CVE-2024-1234"}},
 							Components: []models.XrayComponent{{ID: "org.example:lib"}},
 						},
 						{
-							Severity: "High",
-							Summary:  "SQL injection",
-							CVEs:     []models.XrayCVE{{ID: "CVE-2024-5678"}},
+							Severity:   "High",
+							Summary:    "SQL injection",
+							CVEs:       []models.XrayCVE{{ID: "CVE-2024-5678"}},
 							Components: []models.XrayComponent{{ID: "org.example:db"}},
 						},
 						{

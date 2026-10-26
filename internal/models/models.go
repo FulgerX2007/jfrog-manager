@@ -1,5 +1,7 @@
 package models
 
+import "strings"
+
 // Repository represents a JFrog Artifactory repository.
 type Repository struct {
 	Key         string `json:"key"`
@@ -45,6 +47,9 @@ type XrayGeneral struct {
 	Path        string `json:"path"`
 	PackageType string `json:"pkg_type"`
 	SHA256      string `json:"sha256"`
+	// ComponentID is Xray's id of the artifact as a component, e.g.
+	// "rpm://opcore:1.10.25"; the component export API needs it.
+	ComponentID string `json:"component_id"`
 }
 
 // XrayIssue represents a single vulnerability or issue found by Xray.
@@ -95,4 +100,45 @@ type VulnRow struct {
 	Summary      string
 	// ImpactPaths are the paths inside the artifact down to the vulnerable module.
 	ImpactPaths []string
+	// Fixes are the vulnerable components of this issue inside the artifact
+	// with the versions that fix them, from the Xray component export.
+	Fixes []ComponentFix
+}
+
+// XrayExportRow is one issue × component row of an Xray component export.
+type XrayExportRow struct {
+	IssueID           string                `json:"id"`
+	SourceComponentID string                `json:"source_comp_id"`
+	ComponentVersions XrayComponentVersions `json:"component_versions"`
+}
+
+// XrayComponentVersions holds the version details of an export row.
+type XrayComponentVersions struct {
+	FixedVersions []string `json:"fixed_versions"`
+}
+
+// ComponentFixes holds the export rows per artifact, keyed by the artifact
+// path exactly as the summary returned it (general.path).
+type ComponentFixes struct {
+	ByArtifact map[string][]XrayExportRow
+	// Failed is the number of artifacts whose export failed or timed out.
+	Failed int
+}
+
+// ComponentFix is one vulnerable component of a report row.
+type ComponentFix struct {
+	// Component is the installed component and version, e.g. golang.org/x/net:0.59.0.
+	Component string
+	// Fixed lists the fixing versions, e.g. ["0.60.0"]; nil when Xray knows no fix.
+	Fixed []string
+}
+
+// ComponentName strips the "xxx://" scheme from an Xray component id:
+// "go://golang.org/x/net:0.59.0" → "golang.org/x/net:0.59.0". An id without
+// a scheme is returned unchanged.
+func ComponentName(id string) string {
+	if _, rest, ok := strings.Cut(id, "://"); ok {
+		return rest
+	}
+	return id
 }

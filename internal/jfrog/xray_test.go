@@ -200,7 +200,8 @@ func TestGetXraySummary_DecodesIssueIDImpactPathAndErrors(t *testing.T) {
 				"general": {
 					"name": "opcore-v1.10.25-5314aa81.x86_64.rpm",
 					"path": "default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm",
-					"pkg_type": "Rpm"
+					"pkg_type": "Rpm",
+					"component_id": "rpm://opcore:1.10.25-5314aa81"
 				},
 				"issues": [{
 					"issue_id": "XRAY-1065708",
@@ -229,6 +230,10 @@ func TestGetXraySummary_DecodesIssueIDImpactPathAndErrors(t *testing.T) {
 	}
 	if len(summary.Artifacts) != 1 || len(summary.Artifacts[0].Issues) != 1 {
 		t.Fatalf("expected 1 artifact with 1 issue, got %+v", summary.Artifacts)
+	}
+
+	if got := summary.Artifacts[0].General.ComponentID; got != "rpm://opcore:1.10.25-5314aa81" {
+		t.Errorf("expected component id rpm://opcore:1.10.25-5314aa81, got %q", got)
 	}
 
 	issue := summary.Artifacts[0].Issues[0]

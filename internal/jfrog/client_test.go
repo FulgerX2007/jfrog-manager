@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"jfrog_manager/internal/config"
 )
@@ -43,6 +44,15 @@ func TestNewClient_SetsFields(t *testing.T) {
 	}
 	if client.token != "tok" {
 		t.Errorf("expected token 'tok', got %s", client.token)
+	}
+	if client.exportTimeout != 10*time.Second {
+		t.Errorf("expected exportTimeout 10s, got %s", client.exportTimeout)
+	}
+	if client.exportWorkers != xrayExportWorkers ||
+		client.exportMaxZipBytes != xrayExportMaxZipBytes ||
+		client.exportMaxJSONBytes != xrayExportMaxJSONBytes {
+		t.Errorf("expected export defaults, got workers %d, zip %d, json %d",
+			client.exportWorkers, client.exportMaxZipBytes, client.exportMaxJSONBytes)
 	}
 }
 
