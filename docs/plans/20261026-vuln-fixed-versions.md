@@ -77,7 +77,7 @@
      "component_physical_paths": ["<path inside the artifact>/golang.org/x/net"]}]}
   ```
   `total_count` counts issues; `data` has one row per issue × component version. Errors: 400/404 with a JSON `{"error": ...}` body (sometimes followed by a second JSON object), so decide on the status code, never parse error bodies.
-- **Reading the zip**: read the body through `io.LimitReader` (cap 20 MB), `zip.NewReader` on the bytes, take the first `.json` entry, decode it through `io.LimitReader` (cap 100 MB uncompressed) as a zip-bomb guard. No JSON entry or undecodable JSON in a 2xx → error.
+- **Reading the zip**: read the body through `io.LimitReader` (cap 20 MB), `zip.NewReader` on the bytes, take the first `.json` entry, decode it through `io.LimitReader` (cap 100 MB uncompressed) as a zip-bomb guard. The JSON entry must hold exactly one JSON value (trailing data, valid or not, is rejected). No JSON entry, undecodable JSON or trailing data in a 2xx → a per-artifact failure counted in `Failed`.
 - **Model changes** (`internal/models`):
   ```go
   // XrayGeneral gets: ComponentID string `json:"component_id"`
@@ -147,8 +147,8 @@
 - Modify: `internal/handlers/artifacts_test.go`
 - Modify: `internal/jfrog/xray_test.go`
 
-- [x] add `ComponentID` to `XrayGeneral`; add `XrayExportRow`, `XrayComponentVersions`, `ComponentFixes`, `ComponentFix`; add `Fixes` and `FixesMatched` to `VulnRow`
-- [x] add `GetComponentFixes(artifacts []models.XrayGeneral) (models.ComponentFixes, error)` to `jfrog.Service`
+- [x] add `ComponentID` to `XrayGeneral`; add `XrayExportRow`, `XrayComponentVersions`, `ComponentFixes`, `ComponentFix`; add `Fixes` to `VulnRow` (a separate `FixesMatched` flag was dropped in review: an empty `Fixes` is shown as `—`)
+- [x] add `GetComponentFixes(ctx context.Context, artifacts []models.XrayGeneral) (models.ComponentFixes, error)` to `jfrog.Service`
 - [x] add the method to both `mockService` implementations: fields `fixes models.ComponentFixes`, `fixesErr error`; the handler mock also records `fixesArtifacts`
 - [x] add a stub on `Client` returning `ComponentFixes{}` so the build passes (replaced in Task 3)
 - [x] extend an existing `GetXraySummaries` test so the fixture has `component_id` and the decoded `General.ComponentID` is asserted
@@ -167,7 +167,7 @@
 - [x] degrade rules: network error / non-2xx / deadline for an artifact → counted in `Failed`, `slog.Warn`, no error; malformed 2xx (not a zip, no `.json` entry, bad JSON, over the cap) → wrapped error (changed in review: now also counted in `Failed`)
 - [x] replace the Task 2 stub
 - [x] write tests (httptest.Server serving zips built in the test with `archive/zip`): request body fields per artifact, two artifacts decoded into `ByArtifact`, empty input → no calls
-- [x] write tests for: one artifact 404 and another 200 (`Failed` = 1, the other present); 400 with a two-object error body; deadline hit (`Failed` counts the slow ones); not-a-zip 200 → error; zip without a `.json` entry → error; oversized entry → error; missing `component_id` skipped; run with `go test -race ./internal/jfrog`
+- [x] write tests for: one artifact 404 and another 200 (`Failed` = 1, the other present); 400 with a two-object error body; deadline hit (`Failed` counts the slow ones); not-a-zip 200, zip without a `.json` entry, bad JSON, trailing data after the JSON value, oversized entry or body → that artifact counted in `Failed`, the others kept; missing `component_id` skipped; run with `go test -race ./internal/jfrog`
 - [x] run tests - must pass before task 4
 
 ### Task 4: Join fixes onto report rows
@@ -176,10 +176,10 @@
 - Create: `internal/report/versions.go`
 - Create: `internal/report/versions_test.go`
 
-- [x] implement `AttachVersions(repo, rows, fixes)` and `componentLabel` as described in Technical Details
-- [x] set `FixesMatched`; deduplicate by component, sort; never drop or add rows; `slog.Warn` when exports succeeded, rows exist and none matched
-- [x] write table-driven tests for `componentLabel` (`go://golang.org/x/net:0.59.0`, `rpm://…`, `npm://lodash:4.17.20`, no scheme, empty)
-- [x] write tests for `AttachVersions`: match by artifact + issue id; artifact key with `default/<repo>/` prefix vs `ArtifactPath` with a leading `/`; several components for one issue; duplicate component rows deduplicated; same issue id on two artifacts kept apart; matched row with empty `fixed_versions` (`FixesMatched` true, empty `Fixed`); no match → empty `Fixes`, `FixesMatched` false; empty `ComponentFixes` → rows unchanged; input slice not mutated
+- [x] implement `AttachVersions(repo, rows, fixes)` as described in Technical Details; the scheme strip lives in `models.ComponentName`, shared with `jfrog`
+- [x] fill `Fixes`; deduplicate by component, sort; never drop or add rows; `slog.Warn` when exports succeeded, rows exist and none matched
+- [x] write table-driven tests for `models.ComponentName` (`go://golang.org/x/net:0.59.0`, `rpm://…`, `npm://lodash:4.17.20`, no scheme, empty)
+- [x] write tests for `AttachVersions`: match by artifact + issue id; artifact key with `default/<repo>/` prefix vs `ArtifactPath` with a leading `/`; several components for one issue; duplicate component rows deduplicated; same issue id on two artifacts kept apart; matched row with empty `fixed_versions` (one `Fixes` entry with empty `Fixed`); no match → empty `Fixes`; empty `ComponentFixes` → rows unchanged; input slice not mutated
 - [x] run tests - must pass before task 5
 
 ### Task 5: Fetch fixes in the handler

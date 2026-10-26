@@ -162,7 +162,15 @@ func decodeExportZip(zipped []byte, maxJSON int64) ([]models.XrayExportRow, erro
 		// limited reader also guards against a header that understates the size.
 		limited := &io.LimitedReader{R: rc, N: maxJSON + 1}
 		var out exportResponse
-		err = json.NewDecoder(limited).Decode(&out)
+		dec := json.NewDecoder(limited)
+		err = dec.Decode(&out)
+		if err == nil {
+			// The entry must hold exactly one JSON value: anything after it,
+			// valid or not, makes the body malformed.
+			if _, tokErr := dec.Token(); !errors.Is(tokErr, io.EOF) {
+				err = errors.New("trailing data after JSON value")
+			}
+		}
 		_ = rc.Close()
 		if limited.N <= 0 {
 			return nil, fmt.Errorf("export entry %s exceeds %d bytes", f.Name, maxJSON)

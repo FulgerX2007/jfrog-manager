@@ -353,6 +353,12 @@ func TestGetComponentFixes_MalformedBodiesDegrade(t *testing.T) {
 		{name: "bad json", body: func(t *testing.T) []byte {
 			return buildZip(t, map[string]string{"x.json": "{not json"})
 		}},
+		{name: "trailing garbage", body: func(t *testing.T) []byte {
+			return buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1") + "}garbage"})
+		}},
+		{name: "second json value", body: func(t *testing.T) []byte {
+			return buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1") + "\n" + exportJSON("XRAY-2")})
+		}},
 		{name: "oversized entry", jsonCap: 300, body: func(t *testing.T) []byte {
 			return buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1", "XRAY-2")})
 		}},
@@ -451,5 +457,16 @@ func TestGetComponentFixes_WorkerPoolCoversAllArtifacts(t *testing.T) {
 	}
 	if peak.Load() != 2 {
 		t.Errorf("expected exactly 2 concurrent calls at peak, got %d", peak.Load())
+	}
+}
+
+func TestDecodeExportZip_AllowsTrailingWhitespace(t *testing.T) {
+	zipped := buildZip(t, map[string]string{"x.json": exportJSON("XRAY-1") + "\n \t\n"})
+	rows, err := decodeExportZip(zipped, 1<<20)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 1 || rows[0].IssueID != "XRAY-1" {
+		t.Errorf("expected one XRAY-1 row, got %+v", rows)
 	}
 }
