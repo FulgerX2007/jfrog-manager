@@ -112,7 +112,18 @@
 - [ ] update Technical Details with all of the above (remove the ⚠️ notes)
 - [ ] save one trimmed real response (no secrets, no internal hostnames) as the fixture shape for Task 3 and Task 4 tests
 - [ ] ⚠️ stop and revisit the approach with the user before Task 2 if: the token lacks report permission, the fields are empty, no reliable join key exists, or generation routinely exceeds `TIMEOUT` and can't be narrowed with `include_path_patterns`
-- [ ] no code change in this task, so no tests; `go test ./...` still passes
+- [x] no code change in this task, so no tests; `go test ./...` still passes
+
+⚠️ **BLOCKED (2026-10-26): the token lacks Xray report permission.** Stop condition 1 applies; Task 2 must not start until the approach is revisited with the user.
+
+#### Spike findings
+- Auth as the app does it (basic auth, `JFROG_USERNAME` + `JFROG_TOKEN`). Xray `3.124.42`; `GET /xray/api/v1/system/ping` → 200 `pong`; the existing `POST /xray/api/v1/summary/artifact` → 200, so the token can read Xray.
+- `POST /xray/api/v1/reports/vulnerabilities` with `{"name":"jfrog-manager-spike-<nanos>","resources":{"repositories":[{"name":"<repo>"}]}}` and `Content-Type: application/json` → **403 Forbidden, empty body** (`Content-Length: 0`), on both the default repo (YUM, 19 files) and the largest local repo of the same team (YUM, ~5,200 files, ~36 GB).
+- The reports list `POST /xray/api/v1/reports?page_num=1&num_of_rows=10` → 403 as well, so it is not a per-repo scope issue: the user has no Xray reports permission at all.
+- The repos have no `projectKey`, so a project-scoped report (`?projectKey=`) is not an option; the token cannot read `/access/api/v1/projects` (401). Sending the token as a Bearer header → 401 "Found invalid token", so basic auth is the only working mode.
+- No report was created (every create returned 403 with no `report_id`), so there is nothing to delete. The reports list can't be read to double-check, for the same 403.
+- Not verified, because no report could be created: `fixed_versions` / `vulnerable_component` content, the `path` / `impacted_artifact` join key, pagination (`page_num` base, max `num_of_rows`, body), status values (`aborted`), name character rules, generation time. The ⚠️ notes in Technical Details stay as they are, and no fixture was saved.
+- Options to decide with the user: (a) have a JFrog admin grant the service user the Xray "Manage Reports" permission (or a reports-enabled permission target) on the served repos, then re-run this spike; (b) pick another source, e.g. `POST /xray/api/v1/summary/component` per component or the artifact's dependency graph, and check on this instance whether it returns fixed versions; (c) drop the feature.
 
 ### Task 2: Add models and the Service method
 
