@@ -15,7 +15,10 @@ import (
 )
 
 // mockService implements jfrog.Service for integration tests.
-type mockService struct{}
+type mockService struct {
+	fixes    models.ComponentFixes
+	fixesErr error
+}
 
 func (m mockService) ListRepos() ([]models.Repository, error) {
 	return []models.Repository{
@@ -43,6 +46,10 @@ func (m mockService) GetXraySummary(repo, path string) (models.XraySummary, erro
 
 func (m mockService) GetXraySummaries(repo string, paths []string) (models.XraySummary, error) {
 	return models.XraySummary{Available: true}, nil
+}
+
+func (m mockService) GetComponentFixes(artifacts []models.XrayGeneral) (models.ComponentFixes, error) {
+	return m.fixes, m.fixesErr
 }
 
 func (m mockService) DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error) {

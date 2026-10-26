@@ -28,6 +28,10 @@ type mockService struct {
 	xrayErr   error
 	xrayPaths []string
 
+	fixes          models.ComponentFixes
+	fixesErr       error
+	fixesArtifacts []models.XrayGeneral
+
 	downloadBody        string
 	downloadContentType string
 	downloadErr         error
@@ -67,6 +71,11 @@ func (m *mockService) GetXraySummary(repo, path string) (models.XraySummary, err
 func (m *mockService) GetXraySummaries(repo string, paths []string) (models.XraySummary, error) {
 	m.xrayPaths = paths
 	return m.xray, m.xrayErr
+}
+
+func (m *mockService) GetComponentFixes(artifacts []models.XrayGeneral) (models.ComponentFixes, error) {
+	m.fixesArtifacts = artifacts
+	return m.fixes, m.fixesErr
 }
 
 func (m *mockService) DownloadArtifact(repo, path string) (io.ReadCloser, int64, string, error) {

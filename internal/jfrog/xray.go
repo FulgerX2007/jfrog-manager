@@ -43,6 +43,13 @@ func (c Client) GetXraySummaries(repo string, paths []string) (models.XraySummar
 	return summary, nil
 }
 
+// GetComponentFixes fetches the vulnerable components and fixed versions for
+// the given scanned artifacts from the Xray component export.
+// Stub until the export client is implemented: returns no data.
+func (c Client) GetComponentFixes(artifacts []models.XrayGeneral) (models.ComponentFixes, error) {
+	return models.ComponentFixes{}, nil
+}
+
 // xraySummaryBatch sends one summary request for the given paths.
 func (c Client) xraySummaryBatch(repo string, paths []string) (models.XraySummary, error) {
 	url := c.baseURL + "/xray/api/v1/summary/artifact"

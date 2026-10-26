@@ -147,12 +147,12 @@
 - Modify: `internal/handlers/artifacts_test.go`
 - Modify: `internal/jfrog/xray_test.go`
 
-- [ ] add `ComponentID` to `XrayGeneral`; add `XrayExportRow`, `XrayComponentVersions`, `ComponentFixes`, `ComponentFix`; add `Fixes` and `FixesMatched` to `VulnRow`
-- [ ] add `GetComponentFixes(artifacts []models.XrayGeneral) (models.ComponentFixes, error)` to `jfrog.Service`
-- [ ] add the method to both `mockService` implementations: fields `fixes models.ComponentFixes`, `fixesErr error`; the handler mock also records `fixesArtifacts`
-- [ ] add a stub on `Client` returning `ComponentFixes{}` so the build passes (replaced in Task 3)
-- [ ] extend an existing `GetXraySummaries` test so the fixture has `component_id` and the decoded `General.ComponentID` is asserted
-- [ ] run tests - must pass before task 3
+- [x] add `ComponentID` to `XrayGeneral`; add `XrayExportRow`, `XrayComponentVersions`, `ComponentFixes`, `ComponentFix`; add `Fixes` and `FixesMatched` to `VulnRow`
+- [x] add `GetComponentFixes(artifacts []models.XrayGeneral) (models.ComponentFixes, error)` to `jfrog.Service`
+- [x] add the method to both `mockService` implementations: fields `fixes models.ComponentFixes`, `fixesErr error`; the handler mock also records `fixesArtifacts`
+- [x] add a stub on `Client` returning `ComponentFixes{}` so the build passes (replaced in Task 3)
+- [x] extend an existing `GetXraySummaries` test so the fixture has `component_id` and the decoded `General.ComponentID` is asserted
+- [x] run tests - must pass before task 3
 
 ### Task 3: Implement `Client.GetComponentFixes`
 
