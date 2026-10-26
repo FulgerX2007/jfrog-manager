@@ -176,11 +176,11 @@
 - Create: `internal/report/versions.go`
 - Create: `internal/report/versions_test.go`
 
-- [ ] implement `AttachVersions(repo, rows, fixes)` and `componentLabel` as described in Technical Details
-- [ ] set `FixesMatched`; deduplicate by component, sort; never drop or add rows; `slog.Warn` when exports succeeded, rows exist and none matched
-- [ ] write table-driven tests for `componentLabel` (`go://golang.org/x/net:0.59.0`, `rpm://…`, `npm://lodash:4.17.20`, no scheme, empty)
-- [ ] write tests for `AttachVersions`: match by artifact + issue id; artifact key with `default/<repo>/` prefix vs `ArtifactPath` with a leading `/`; several components for one issue; duplicate component rows deduplicated; same issue id on two artifacts kept apart; matched row with empty `fixed_versions` (`FixesMatched` true, empty `Fixed`); no match → empty `Fixes`, `FixesMatched` false; empty `ComponentFixes` → rows unchanged; input slice not mutated
-- [ ] run tests - must pass before task 5
+- [x] implement `AttachVersions(repo, rows, fixes)` and `componentLabel` as described in Technical Details
+- [x] set `FixesMatched`; deduplicate by component, sort; never drop or add rows; `slog.Warn` when exports succeeded, rows exist and none matched
+- [x] write table-driven tests for `componentLabel` (`go://golang.org/x/net:0.59.0`, `rpm://…`, `npm://lodash:4.17.20`, no scheme, empty)
+- [x] write tests for `AttachVersions`: match by artifact + issue id; artifact key with `default/<repo>/` prefix vs `ArtifactPath` with a leading `/`; several components for one issue; duplicate component rows deduplicated; same issue id on two artifacts kept apart; matched row with empty `fixed_versions` (`FixesMatched` true, empty `Fixed`); no match → empty `Fixes`, `FixesMatched` false; empty `ComponentFixes` → rows unchanged; input slice not mutated
+- [x] run tests - must pass before task 5
 
 ### Task 5: Fetch fixes in the handler
 
