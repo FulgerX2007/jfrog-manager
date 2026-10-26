@@ -180,3 +180,31 @@ func TestAttachVersions_DoesNotMutateInput(t *testing.T) {
 		t.Error("result shares the fixed versions slice with the export")
 	}
 }
+
+func TestArtifactsWithFindings(t *testing.T) {
+	withIssue := models.XrayArtifact{
+		General: models.XrayGeneral{Path: "default/repo/a/one.rpm", ComponentID: "rpm://one:1"},
+		Issues:  []models.XrayIssue{{IssueID: "XRAY-1"}},
+	}
+	clean := models.XrayArtifact{General: models.XrayGeneral{Path: "default/repo/a/clean.rpm", ComponentID: "rpm://clean:1"}}
+	noRows := models.XrayArtifact{
+		General: models.XrayGeneral{Path: "default/repo/a/other.rpm", ComponentID: "rpm://other:1"},
+		Issues:  []models.XrayIssue{{IssueID: "XRAY-2"}},
+	}
+	summary := models.XraySummary{Available: true, Artifacts: []models.XrayArtifact{withIssue, clean, noRows, withIssue}}
+	rows := []models.VulnRow{
+		{ArtifactPath: "/a/one.rpm", IssueID: "XRAY-1"},
+		{ArtifactPath: "a/one.rpm", IssueID: "XRAY-3"},
+		{ArtifactPath: "a/clean.rpm", IssueID: "XRAY-9"},
+	}
+
+	got := ArtifactsWithFindings("repo", rows, summary)
+	want := []models.XrayGeneral{withIssue.General}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ArtifactsWithFindings = %+v, want %+v", got, want)
+	}
+
+	if got := ArtifactsWithFindings("repo", nil, summary); len(got) != 0 {
+		t.Errorf("expected no artifacts without rows, got %+v", got)
+	}
+}

@@ -86,3 +86,25 @@ func componentLabel(id string) string {
 	}
 	return id
 }
+
+// ArtifactsWithFindings returns the Xray metadata of the scanned artifacts
+// that produced at least one report row, in summary order and without
+// duplicates. These are the artifacts worth a component export call.
+func ArtifactsWithFindings(repo string, rows []models.VulnRow, summary models.XraySummary) []models.XrayGeneral {
+	withRows := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		withRows[strings.Trim(r.ArtifactPath, "/")] = true
+	}
+
+	out := []models.XrayGeneral{}
+	seen := map[string]bool{}
+	for _, xa := range summary.Artifacts {
+		key := normalizePath(repo, xa.General.Path)
+		if len(xa.Issues) == 0 || !withRows[key] || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, xa.General)
+	}
+	return out
+}

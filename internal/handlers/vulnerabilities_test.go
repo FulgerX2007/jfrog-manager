@@ -6,6 +6,7 @@ import (
 	"html"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -341,5 +342,129 @@ func TestExportVulnerabilities_SeverityFilter(t *testing.T) {
 	}
 	if len(records) != 2 || records[1][3] != "High" || records[1][0] != "opcore" {
 		t.Errorf("expected only the high finding, got %v", records)
+	}
+}
+
+func buildReport(t *testing.T, mock *mockService, q vulnerabilityQuery) vulnerabilityResult {
+	t.Helper()
+	h := NewHandler(mock, nil, "")
+	res, err := h.buildVulnerabilityReport(q)
+	if err != nil {
+		t.Fatalf("buildVulnerabilityReport: %v", err)
+	}
+	return res
+}
+
+func TestBuildVulnerabilityReport_AttachesFixes(t *testing.T) {
+	mock := vulnMock()
+	mock.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{
+		"default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm": {
+			{IssueID: "XRAY-20", SourceComponentID: "go://github.com/pelletier/go-toml/v2:2.0.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"2.0.1"}}},
+		},
+	}}
+	res := buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
+
+	if res.fixesFailed != 0 {
+		t.Errorf("expected no failed exports, got %d", res.fixesFailed)
+	}
+	if len(res.rows) != 3 || len(res.report.Rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d filtered and %d total", len(res.rows), len(res.report.Rows))
+	}
+	for _, rows := range [][]models.VulnRow{res.rows, res.report.Rows} {
+		for _, row := range rows {
+			if row.IssueID != "XRAY-20" {
+				if row.FixesMatched || len(row.Fixes) != 0 {
+					t.Errorf("row %s must not carry fixes, got %+v", row.IssueID, row.Fixes)
+				}
+				continue
+			}
+			want := []models.ComponentFix{{Component: "github.com/pelletier/go-toml/v2:2.0.0", Fixed: []string{"2.0.1"}}}
+			if !row.FixesMatched || !reflect.DeepEqual(row.Fixes, want) {
+				t.Errorf("row XRAY-20: got matched=%v fixes=%+v, want %+v", row.FixesMatched, row.Fixes, want)
+			}
+		}
+	}
+}
+
+func TestBuildVulnerabilityReport_PassesOnlyArtifactsWithFindings(t *testing.T) {
+	mock := vulnMock()
+	mock.artifacts = append(mock.artifacts, vulnArtifact("portal/clean/clean-v1.0.0-aaaa.x86_64.rpm", "2026-10-01T00:00:00.000Z"))
+	mock.xray.Artifacts = append(mock.xray.Artifacts, models.XrayArtifact{
+		General: models.XrayGeneral{Path: "default/rpm-stable/portal/clean/clean-v1.0.0-aaaa.x86_64.rpm"},
+	})
+	buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
+
+	got := make([]string, 0, len(mock.fixesArtifacts))
+	for _, g := range mock.fixesArtifacts {
+		got = append(got, g.Path)
+	}
+	want := []string{
+		"default/rpm-stable/portal/opcontrol/opcontrol-v1.10.52-5608d1c8.x86_64.rpm",
+		"default/rpm-stable/portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("fixes requested for %v, want %v", got, want)
+	}
+}
+
+func TestBuildVulnerabilityReport_FixesPartiallyFailed(t *testing.T) {
+	mock := vulnMock()
+	mock.fixes = models.ComponentFixes{ByArtifact: map[string][]models.XrayExportRow{}, Failed: 1}
+	res := buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
+	if res.fixesFailed != 1 {
+		t.Errorf("expected 1 failed export, got %d", res.fixesFailed)
+	}
+}
+
+func TestVulnerabilities_FixesErrorStillRenders(t *testing.T) {
+	mock := vulnMock()
+	mock.fixesErr = errors.New("malformed export")
+
+	res := buildReport(t, mock, vulnerabilityQuery{repo: "rpm-stable", sort: "severity", dir: "desc"})
+	if res.fixesFailed != 2 {
+		t.Errorf("expected both artifacts counted as failed, got %d", res.fixesFailed)
+	}
+	if len(res.rows) != 3 {
+		t.Fatalf("expected all 3 rows kept, got %d", len(res.rows))
+	}
+	for _, row := range res.rows {
+		if row.FixesMatched || len(row.Fixes) != 0 {
+			t.Errorf("row %s must not carry fixes after an error", row.IssueID)
+		}
+	}
+
+	w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	if !strings.Contains(html.UnescapeString(w.Body.String()), "Critical issue in opcontrol") {
+		t.Error("expected the findings to render despite the fixes error")
+	}
+
+	w = getVulnerabilities(mock, "/vulnerabilities/export?repo=rpm-stable")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected export status 200, got %d", w.Code)
+	}
+}
+
+func TestVulnerabilities_NoFixesCallWithoutSummaryOrFindings(t *testing.T) {
+	unavailable := vulnMock()
+	unavailable.xray = models.XraySummary{Available: false}
+	clean := vulnMock()
+	for i := range clean.xray.Artifacts {
+		clean.xray.Artifacts[i].Issues = nil
+	}
+
+	for name, mock := range map[string]*mockService{"unavailable": unavailable, "no findings": clean} {
+		t.Run(name, func(t *testing.T) {
+			mock.fixesErr = errors.New("must not be called")
+			w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected status 200, got %d", w.Code)
+			}
+			if mock.fixesArtifacts != nil {
+				t.Errorf("expected no fixes call, got %v", mock.fixesArtifacts)
+			}
+		})
 	}
 }

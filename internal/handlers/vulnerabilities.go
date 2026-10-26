@@ -34,6 +34,9 @@ type vulnerabilityResult struct {
 	available bool
 	// excluded is the number of older files left out of the report.
 	excluded int
+	// fixesFailed is the number of artifacts whose vulnerable and fixed
+	// versions could not be retrieved.
+	fixesFailed int
 }
 
 // parseVulnerabilityQuery reads and validates the report parameters.
@@ -75,8 +78,34 @@ func (h Handler) buildVulnerabilityReport(q vulnerabilityQuery) (vulnerabilityRe
 	}
 
 	rep := report.Build(q.repo, latest, summary)
+	withFixes, fixesFailed := h.attachFixes(q.repo, rep.Rows, summary)
+	rep.Rows = withFixes
 	rows := report.SortRows(report.FilterBySeverity(rep.Rows, q.severity), q.sort, q.dir)
-	return vulnerabilityResult{report: rep, rows: rows, available: true, excluded: len(artifacts) - len(latest)}, nil
+	return vulnerabilityResult{
+		report:      rep,
+		rows:        rows,
+		available:   true,
+		excluded:    len(artifacts) - len(latest),
+		fixesFailed: fixesFailed,
+	}, nil
+}
+
+// attachFixes asks Xray for the vulnerable and fixed versions of the artifacts
+// that have findings and joins them onto the rows. It never fails: when the
+// versions can't be retrieved the rows are returned without them, together
+// with the number of artifacts that are missing their versions.
+func (h Handler) attachFixes(repo string, rows []models.VulnRow, summary models.XraySummary) ([]models.VulnRow, int) {
+	targets := report.ArtifactsWithFindings(repo, rows, summary)
+	if len(targets) == 0 {
+		return rows, 0
+	}
+
+	fixes, err := h.service.GetComponentFixes(targets)
+	if err != nil {
+		slog.Error("getting xray component fixes", "error", err, "artifacts", len(targets))
+		return rows, len(targets)
+	}
+	return report.AttachVersions(repo, rows, fixes), fixes.Failed
 }
 
 // severityTile is one entry of the severity filter of the report.
@@ -111,19 +140,20 @@ func (h Handler) GetVulnerabilities(c *gin.Context) {
 	c.Status(http.StatusOK)
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	data := map[string]any{
-		"Repo":       q.repo,
-		"Sort":       q.sort,
-		"Dir":        q.dir,
-		"Severity":   q.severity,
-		"Available":  res.available,
-		"Total":      len(res.report.Rows),
-		"Shown":      len(res.rows),
-		"Tiles":      tiles,
-		"Groups":     report.GroupRows(res.rows, q.sort, q.dir),
-		"Scanned":    res.report.Scanned,
-		"NotScanned": res.report.NotScanned,
-		"Clean":      res.report.Clean,
-		"Excluded":   res.excluded,
+		"Repo":        q.repo,
+		"Sort":        q.sort,
+		"Dir":         q.dir,
+		"Severity":    q.severity,
+		"Available":   res.available,
+		"Total":       len(res.report.Rows),
+		"Shown":       len(res.rows),
+		"Tiles":       tiles,
+		"Groups":      report.GroupRows(res.rows, q.sort, q.dir),
+		"Scanned":     res.report.Scanned,
+		"NotScanned":  res.report.NotScanned,
+		"Clean":       res.report.Clean,
+		"Excluded":    res.excluded,
+		"FixesFailed": res.fixesFailed,
 	}
 	if err := h.tmpl.ExecuteTemplate(c.Writer, "vuln_report", data); err != nil {
 		slog.Error("rendering vulnerability report", "error", err)

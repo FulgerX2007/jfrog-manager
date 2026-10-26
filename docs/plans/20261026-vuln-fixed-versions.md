@@ -187,12 +187,13 @@
 **Files:**
 - Modify: `internal/handlers/vulnerabilities.go`
 - Modify: `internal/handlers/vulnerabilities_test.go`
+- ➕ Modify: `internal/report/versions.go`, `internal/report/versions_test.go` (`ArtifactsWithFindings`)
 
-- [ ] in `buildVulnerabilityReport`, after `report.Build`, collect the `General` of each scanned latest artifact that has issues (skip the call when there are none or the summary is unavailable), call `GetComponentFixes`, then `report.AttachVersions` on `rep.Rows` before filter/sort
-- [ ] an error from `GetComponentFixes` is logged and treated as "all failed" — the page still renders
-- [ ] expose `FixesFailed` (count) in the result and template data; the export uses the same rows
-- [ ] write handler tests: fixes available → rows carry fixes; error → 200, rows without fixes, `FixesFailed` > 0; summary unavailable → no fixes call; only artifacts with issues are passed to the call
-- [ ] run tests - must pass before task 6
+- [x] in `buildVulnerabilityReport`, after `report.Build`, collect the `General` of each scanned latest artifact that has issues (skip the call when there are none or the summary is unavailable), call `GetComponentFixes`, then `report.AttachVersions` on `rep.Rows` before filter/sort
+- [x] an error from `GetComponentFixes` is logged and treated as "all failed" — the page still renders
+- [x] expose `FixesFailed` (count) in the result and template data; the export uses the same rows
+- [x] write handler tests: fixes available → rows carry fixes; error → 200, rows without fixes, `FixesFailed` > 0; summary unavailable → no fixes call; only artifacts with issues are passed to the call
+- [x] run tests - must pass before task 6
 
 ### Task 6: Show the columns in the report page
 
