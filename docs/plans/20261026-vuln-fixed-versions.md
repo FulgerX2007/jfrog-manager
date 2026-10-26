@@ -161,14 +161,14 @@
 - Create: `internal/jfrog/xray_export.go`
 - Create: `internal/jfrog/xray_export_test.go`
 
-- [ ] add `exportTimeout time.Duration` to `Client`, set from `cfg.Timeout` in `NewClient`; tests in the same package build a `Client` with a few-millisecond value
-- [ ] implement the request body from Technical Details (scheme stripped from `component_id`, `pkg_type` lowercased) and the zip reading with both size caps
-- [ ] run the calls with `xrayExportWorkers` (package var, 4) sharing one `context.WithTimeout(exportTimeout)`; results into a pre-sized slice, merged after `Wait`; skip artifacts with an empty `component_id` or `sha256` (counted as failed)
-- [ ] degrade rules: network error / non-2xx / deadline for an artifact → counted in `Failed`, `slog.Warn`, no error; malformed 2xx (not a zip, no `.json` entry, bad JSON, over the cap) → wrapped error
-- [ ] replace the Task 2 stub
-- [ ] write tests (httptest.Server serving zips built in the test with `archive/zip`): request body fields per artifact, two artifacts decoded into `ByArtifact`, empty input → no calls
-- [ ] write tests for: one artifact 404 and another 200 (`Failed` = 1, the other present); 400 with a two-object error body; deadline hit (`Failed` counts the slow ones); not-a-zip 200 → error; zip without a `.json` entry → error; oversized entry → error; missing `component_id` skipped; run with `go test -race ./internal/jfrog`
-- [ ] run tests - must pass before task 4
+- [x] add `exportTimeout time.Duration` to `Client`, set from `cfg.Timeout` in `NewClient`; tests in the same package build a `Client` with a few-millisecond value
+- [x] implement the request body from Technical Details (scheme stripped from `component_id`, `pkg_type` lowercased) and the zip reading with both size caps
+- [x] run the calls with `xrayExportWorkers` (package var, 4) sharing one `context.WithTimeout(exportTimeout)`; results into a pre-sized slice, merged after `Wait`; skip artifacts with an empty `component_id` or `sha256` (counted as failed)
+- [x] degrade rules: network error / non-2xx / deadline for an artifact → counted in `Failed`, `slog.Warn`, no error; malformed 2xx (not a zip, no `.json` entry, bad JSON, over the cap) → wrapped error
+- [x] replace the Task 2 stub
+- [x] write tests (httptest.Server serving zips built in the test with `archive/zip`): request body fields per artifact, two artifacts decoded into `ByArtifact`, empty input → no calls
+- [x] write tests for: one artifact 404 and another 200 (`Failed` = 1, the other present); 400 with a two-object error body; deadline hit (`Failed` counts the slow ones); not-a-zip 200 → error; zip without a `.json` entry → error; oversized entry → error; missing `component_id` skipped; run with `go test -race ./internal/jfrog`
+- [x] run tests - must pass before task 4
 
 ### Task 4: Join fixes onto report rows
 

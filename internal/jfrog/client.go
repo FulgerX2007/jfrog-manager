@@ -32,6 +32,9 @@ type Client struct {
 	baseURL          string
 	username         string
 	token            string
+	// exportTimeout bounds all Xray component export calls of one
+	// GetComponentFixes call together.
+	exportTimeout time.Duration
 }
 
 // NewClient creates a new JFrog API client from the application config.
@@ -46,6 +49,7 @@ func NewClient(cfg config.Config) Client {
 		baseURL:          strings.TrimRight(cfg.JFrogURL, "/"),
 		username:         cfg.JFrogUsername,
 		token:            cfg.JFrogToken,
+		exportTimeout:    time.Duration(cfg.Timeout) * time.Second,
 	}
 }
 
