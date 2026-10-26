@@ -163,7 +163,7 @@
 
 - [x] add `exportTimeout time.Duration` to `Client`, set from `cfg.Timeout` in `NewClient`; tests in the same package build a `Client` with a few-millisecond value
 - [x] implement the request body from Technical Details (scheme stripped from `component_id`, `pkg_type` lowercased) and the zip reading with both size caps
-- [x] run the calls with `xrayExportWorkers` (package var, 4) sharing one `context.WithTimeout(exportTimeout)`; results into a pre-sized slice, merged after `Wait`; skip artifacts with an empty `component_id` or `sha256` (counted as failed)
+- [x] run the calls with `Client.exportWorkers` (default const `xrayExportWorkers` = 4, set in `NewClient`) sharing one `context.WithTimeout(exportTimeout)`; results into a pre-sized slice, merged after `Wait`; skip artifacts with an empty `component_id` or `sha256` (counted as failed)
 - [x] degrade rules: network error / non-2xx / deadline for an artifact → counted in `Failed`, `slog.Warn`, no error; malformed 2xx (not a zip, no `.json` entry, bad JSON, over the cap) → wrapped error (changed in review: now also counted in `Failed`)
 - [x] replace the Task 2 stub
 - [x] write tests (httptest.Server serving zips built in the test with `archive/zip`): request body fields per artifact, two artifacts decoded into `ByArtifact`, empty input → no calls

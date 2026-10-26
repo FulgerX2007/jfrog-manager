@@ -48,6 +48,12 @@ func TestNewClient_SetsFields(t *testing.T) {
 	if client.exportTimeout != 10*time.Second {
 		t.Errorf("expected exportTimeout 10s, got %s", client.exportTimeout)
 	}
+	if client.exportWorkers != xrayExportWorkers ||
+		client.exportMaxZipBytes != xrayExportMaxZipBytes ||
+		client.exportMaxJSONBytes != xrayExportMaxJSONBytes {
+		t.Errorf("expected export defaults, got workers %d, zip %d, json %d",
+			client.exportWorkers, client.exportMaxZipBytes, client.exportMaxJSONBytes)
+	}
 }
 
 func TestDo_InjectsBasicAuth(t *testing.T) {

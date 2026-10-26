@@ -35,6 +35,12 @@ type Client struct {
 	// exportTimeout bounds all Xray component export calls of one
 	// GetComponentFixes call together.
 	exportTimeout time.Duration
+	// exportWorkers is the number of component export calls run at once.
+	exportWorkers int
+	// exportMaxZipBytes and exportMaxJSONBytes cap one export response's
+	// zipped body and its JSON entry.
+	exportMaxZipBytes  int64
+	exportMaxJSONBytes int64
 }
 
 // NewClient creates a new JFrog API client from the application config.
@@ -45,11 +51,14 @@ func NewClient(cfg config.Config) Client {
 		httpClient: http.Client{
 			Timeout: time.Duration(cfg.Timeout) * time.Second,
 		},
-		streamHTTPClient: http.Client{},
-		baseURL:          strings.TrimRight(cfg.JFrogURL, "/"),
-		username:         cfg.JFrogUsername,
-		token:            cfg.JFrogToken,
-		exportTimeout:    time.Duration(cfg.Timeout) * time.Second,
+		streamHTTPClient:   http.Client{},
+		baseURL:            strings.TrimRight(cfg.JFrogURL, "/"),
+		username:           cfg.JFrogUsername,
+		token:              cfg.JFrogToken,
+		exportTimeout:      time.Duration(cfg.Timeout) * time.Second,
+		exportWorkers:      xrayExportWorkers,
+		exportMaxZipBytes:  xrayExportMaxZipBytes,
+		exportMaxJSONBytes: xrayExportMaxJSONBytes,
 	}
 }
 

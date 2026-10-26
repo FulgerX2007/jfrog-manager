@@ -63,11 +63,7 @@ func componentFixes(exp []models.XrayExportRow) []models.ComponentFix {
 	index := map[string]int{}
 	fixes := []models.ComponentFix{}
 	for _, r := range exp {
-		// Strip the "xxx://" scheme: "go://golang.org/x/net:0.59.0" → "golang.org/x/net:0.59.0".
-		label := r.SourceComponentID
-		if _, rest, ok := strings.Cut(label, "://"); ok {
-			label = rest
-		}
+		label := models.ComponentName(r.SourceComponentID)
 		i, ok := index[label]
 		if !ok {
 			i = len(fixes)
@@ -94,23 +90,21 @@ func ArtifactsWithFindings(repo string, rows []models.VulnRow, summary models.Xr
 		withRows[strings.Trim(r.ArtifactPath, "/")] = true
 	}
 
+	var keys []string
 	last := make(map[string]models.XrayArtifact, len(summary.Artifacts))
 	for _, xa := range summary.Artifacts {
-		last[normalizePath(repo, xa.General.Path)] = xa
+		key := normalizePath(repo, xa.General.Path)
+		if _, ok := last[key]; !ok {
+			keys = append(keys, key)
+		}
+		last[key] = xa
 	}
 
 	out := []models.XrayGeneral{}
-	seen := map[string]bool{}
-	for _, xa := range summary.Artifacts {
-		key := normalizePath(repo, xa.General.Path)
-		if seen[key] {
-			continue
+	for _, key := range keys {
+		if xa := last[key]; len(xa.Issues) > 0 && withRows[key] {
+			out = append(out, xa.General)
 		}
-		seen[key] = true
-		if xa = last[key]; len(xa.Issues) == 0 || !withRows[key] {
-			continue
-		}
-		out = append(out, xa.General)
 	}
 	return out
 }

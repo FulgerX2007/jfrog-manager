@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"encoding/csv"
 	"errors"
@@ -588,20 +587,6 @@ func TestGetVulnerabilities_FixesNotice(t *testing.T) {
 	w := getVulnerabilities(partial, "/vulnerabilities?repo=rpm-stable")
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), notice) {
 		t.Errorf("expected the notice when an export failed (status %d)", w.Code)
-	}
-
-	// The handler never asks for fixes without a summary, so render the
-	// template directly to check the notice stays inside the available branch.
-	tmpl, err := templates.Load("../../templates")
-	if err != nil {
-		t.Fatalf("loading templates: %v", err)
-	}
-	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "vuln_report", map[string]any{"Repo": "rpm-stable", "Available": false, "FixesFailed": 2}); err != nil {
-		t.Fatalf("rendering: %v", err)
-	}
-	if strings.Contains(buf.String(), "could not be retrieved for") {
-		t.Error("notice must not show when the summary itself is unavailable")
 	}
 }
 

@@ -1,5 +1,7 @@
 package models
 
+import "strings"
+
 // Repository represents a JFrog Artifactory repository.
 type Repository struct {
 	Key         string `json:"key"`
@@ -129,4 +131,14 @@ type ComponentFix struct {
 	Component string
 	// Fixed lists the fixing versions, e.g. ["0.60.0"]; nil when Xray knows no fix.
 	Fixed []string
+}
+
+// ComponentName strips the "xxx://" scheme from an Xray component id:
+// "go://golang.org/x/net:0.59.0" → "golang.org/x/net:0.59.0". An id without
+// a scheme is returned unchanged.
+func ComponentName(id string) string {
+	if _, rest, ok := strings.Cut(id, "://"); ok {
+		return rest
+	}
+	return id
 }

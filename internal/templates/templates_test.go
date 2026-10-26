@@ -510,6 +510,68 @@ func TestVulnReportRenders(t *testing.T) {
 	})
 }
 
+func TestVulnReportTemplate_VersionColumns(t *testing.T) {
+	rows := vulnReportRows()
+	rows[0].Fixes = []models.ComponentFix{
+		{Component: "golang.org/x/net:0.59.0", Fixed: []string{"0.60.0", "0.61.0"}},
+		{Component: "zlib:1.2"},
+	}
+	output := renderVulnReport(t, vulnReportData(rows, "", "", ""))
+
+	for _, s := range []string{
+		`<span class="o-fix-line"><code>golang.org/x/net:0.59.0</code></span><span class="o-fix-line"><code>zlib:1.2</code></span>`,
+		`<span class="o-fix-line"><code>0.60.0, 0.61.0</code></span><span class="o-fix-line"><span class="o-muted" title="No fix available">&mdash;</span></span>`,
+	} {
+		if !strings.Contains(output, s) {
+			t.Errorf("vuln_report output missing %q", s)
+		}
+	}
+	// the row without fixes falls back to plain dashes in both version cells
+	dash := `<td><span class="o-muted">&mdash;</span></td>`
+	if strings.Count(output, dash) < 2 {
+		t.Errorf("expected plain dash cells for the rows without fixes, got %d", strings.Count(output, dash))
+	}
+	if strings.Count(output, `title="No fix available"`) != 1 {
+		t.Errorf("expected exactly one no-fix title, got %d", strings.Count(output, `title="No fix available"`))
+	}
+}
+
+func TestVulnReportTemplate_FixesNotice(t *testing.T) {
+	const prefix = "Vulnerable and fixed versions could not be retrieved for"
+	tests := []struct {
+		name   string
+		failed int
+		want   string
+	}{
+		{name: "none", failed: 0},
+		{name: "singular", failed: 1, want: prefix + " 1 package."},
+		{name: "plural", failed: 3, want: prefix + " 3 packages."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := vulnReportData(vulnReportRows(), "", "", "")
+			data["FixesFailed"] = tt.failed
+			output := renderVulnReport(t, data)
+			if tt.want == "" {
+				if strings.Contains(output, prefix) {
+					t.Error("notice must not show when no export failed")
+				}
+				return
+			}
+			if !strings.Contains(output, tt.want) {
+				t.Errorf("expected %q", tt.want)
+			}
+		})
+	}
+
+	t.Run("hidden when xray unavailable", func(t *testing.T) {
+		output := renderVulnReport(t, map[string]any{"Repo": "r", "Available": false, "FixesFailed": 2})
+		if strings.Contains(output, prefix) {
+			t.Error("notice must not show when the summary itself is unavailable")
+		}
+	})
+}
+
 func TestFuncMap_SortBySeverityRanksUnknownLast(t *testing.T) {
 	fn := FuncMap()["sortBySeverity"].(func([]models.XrayIssue) []models.XrayIssue)
 	sorted := fn([]models.XrayIssue{{Severity: "Unknown"}, {Severity: "low"}, {Severity: "Weird"}, {Severity: "Critical"}, {Severity: "High"}})

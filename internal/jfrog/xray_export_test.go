@@ -220,20 +220,10 @@ func TestGetComponentFixes_PerArtifactFailuresDegrade(t *testing.T) {
 	}
 }
 
-// setVar overrides a package-level setting for one test. Tests that use it
-// must not call t.Parallel.
-func setVar[T any](t *testing.T, v *T, val T) {
-	t.Helper()
-	orig := *v
-	*v = val
-	t.Cleanup(func() { *v = orig })
-}
-
 func TestGetComponentFixes_OneDeadlineSharedByAllCalls(t *testing.T) {
 	// One worker runs the calls one after another. Each fits in the timeout on
 	// its own, but not both: only a deadline shared by the whole load fails the
 	// second one.
-	setVar(t, &xrayExportWorkers, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		decodeExportRequest(t, r)
 		select {
@@ -245,8 +235,10 @@ func TestGetComponentFixes_OneDeadlineSharedByAllCalls(t *testing.T) {
 	}))
 	defer server.Close()
 
+	client := newExportClient(server.URL, time.Second)
+	client.exportWorkers = 1
 	start := time.Now()
-	fixes, err := newExportClient(server.URL, time.Second).GetComponentFixes(context.Background(), []models.XrayGeneral{
+	fixes, err := client.GetComponentFixes(context.Background(), []models.XrayGeneral{
 		general("first.rpm", "sha-1"),
 		general("second.rpm", "sha-2"),
 	})
@@ -372,15 +364,16 @@ func TestGetComponentFixes_MalformedBodiesDegrade(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// The healthy body fits the lowered caps; only the bad one exceeds them.
 			healthy := buildZip(t, map[string]string{"x.json": exportJSON("XRAY-9")})
+			client := newExportClient("", 5*time.Second)
 			if tt.jsonCap > 0 {
-				setVar(t, &xrayExportMaxJSONBytes, tt.jsonCap)
+				client.exportMaxJSONBytes = tt.jsonCap
 			}
 			bad := tt.body(t)
 			if tt.capZip {
 				if len(bad) <= len(healthy) {
 					t.Fatalf("test setup: bad body (%d bytes) must be larger than the healthy one (%d)", len(bad), len(healthy))
 				}
-				setVar(t, &xrayExportMaxZipBytes, int64(len(healthy)))
+				client.exportMaxZipBytes = int64(len(healthy))
 			}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if decodeExportRequest(t, r).SHA256 == "sha-ok" {
@@ -390,8 +383,9 @@ func TestGetComponentFixes_MalformedBodiesDegrade(t *testing.T) {
 				writeZip(w, bad)
 			}))
 			defer server.Close()
+			client.baseURL = server.URL
 
-			fixes, err := newExportClient(server.URL, 5*time.Second).GetComponentFixes(context.Background(), []models.XrayGeneral{
+			fixes, err := client.GetComponentFixes(context.Background(), []models.XrayGeneral{
 				general("ok.rpm", "sha-ok"),
 				general("bad.rpm", "sha-bad"),
 			})
@@ -412,8 +406,6 @@ func TestGetComponentFixes_MalformedBodiesDegrade(t *testing.T) {
 }
 
 func TestGetComponentFixes_WorkerPoolCoversAllArtifacts(t *testing.T) {
-	setVar(t, &xrayExportWorkers, 2)
-
 	// The first two calls wait for each other, so the test only passes when
 	// two run at once; peak shows no more than two ever do.
 	var inFlight, peak atomic.Int32
@@ -448,7 +440,9 @@ func TestGetComponentFixes_WorkerPoolCoversAllArtifacts(t *testing.T) {
 	for _, name := range []string{"a", "b", "c", "d", "e", "f", "g"} {
 		arts = append(arts, general(name+".rpm", "sha-"+name))
 	}
-	fixes, err := newExportClient(server.URL, 10*time.Second).GetComponentFixes(context.Background(), arts)
+	client := newExportClient(server.URL, 10*time.Second)
+	client.exportWorkers = 2
+	fixes, err := client.GetComponentFixes(context.Background(), arts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
