@@ -221,12 +221,12 @@
 - [x] run tests - must pass before task 8
 
 ### Task 8: Verify acceptance criteria
-- [ ] verify both columns show on the page and in the CSV for scanned findings
-- [ ] verify the page still renders (200) with `—` and the notice when some or all exports fail or time out
-- [ ] verify not-scanned packages, severity filter, sort and clean list are unchanged
-- [ ] run full test suite: `go test ./...` and `go test -race ./...`
-- [ ] run `golangci-lint run`
-- [ ] check coverage of the new code: `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out`
+- [x] verify both columns show on the page and in the CSV for scanned findings
+- [x] verify the page still renders (200) with `—` and the notice when some or all exports fail or time out
+- [x] verify not-scanned packages, severity filter, sort and clean list are unchanged
+- [x] run full test suite: `go test ./...` and `go test -race ./...`
+- [x] run `golangci-lint run`
+- [x] check coverage of the new code: `go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out` (profile written to the scratchpad, not the repo; xray_export.go 86–100%, versions.go 100%, csv.go 90.9–100%, handlers/vulnerabilities.go 94–100%)
 
 ### Task 9: [Final] Update documentation
 - [ ] update `docs/api/README.md`: new columns on the page, new CSV header (note that `Summary` and `Impact Path` moved two positions), the extra `exportDetails` call per artifact with findings

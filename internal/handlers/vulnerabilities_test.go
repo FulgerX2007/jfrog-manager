@@ -584,3 +584,94 @@ func TestGetVulnerabilities_FixesNotice(t *testing.T) {
 		t.Error("notice must not show when the summary itself is unavailable")
 	}
 }
+
+func TestGetVulnerabilities_AllFixesFailedShowsDashesAndNotice(t *testing.T) {
+	mock := vulnMock()
+	mock.fixesErr = errors.New("export timed out")
+	w := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Vulnerable and fixed versions could not be retrieved for 2 packages.") {
+		t.Error("expected the notice counting both packages with findings")
+	}
+	if strings.Contains(body, "o-fix-line") || strings.Contains(body, "No fix available") {
+		t.Error("no version lines may render when every export failed")
+	}
+	dash := `<td><span class="o-muted">&mdash;</span></td>`
+	for _, summary := range []string{"Critical issue in opcontrol", "Low issue in opcontrol", "High issue in opcore"} {
+		row := findingRow(t, body, summary)
+		if strings.Count(row, dash) < 2 {
+			t.Errorf("expected dashes in both version cells of %q, got %q", summary, row)
+		}
+	}
+}
+
+// TestGetVulnerabilities_FixesKeepExistingBehaviour checks that attaching fixes
+// (with one export failed) changes neither not-scanned handling, the severity
+// filter, sorting nor the clean list.
+func TestGetVulnerabilities_FixesKeepExistingBehaviour(t *testing.T) {
+	withFixes := func() *mockService {
+		mock := vulnMock()
+		mock.fixes = models.ComponentFixes{
+			ByArtifact: map[string][]models.XrayExportRow{
+				"default/rpm-stable/portal/opcontrol/opcontrol-v1.10.52-5608d1c8.x86_64.rpm": {
+					{IssueID: "XRAY-11", SourceComponentID: "go://golang.org/x/net:0.59.0", ComponentVersions: models.XrayComponentVersions{FixedVersions: []string{"0.60.0"}}},
+				},
+			},
+			Failed: 1,
+		}
+		return mock
+	}
+
+	t.Run("not scanned", func(t *testing.T) {
+		body := html.UnescapeString(getVulnerabilities(withFixes(), "/vulnerabilities?repo=rpm-stable").Body.String())
+		for _, s := range []string{"Findings: 3", "Packages scanned: 2", "Not scanned: 1", "Packages not scanned by Xray: 1", "portal/sso/sso-v1.10.15-cc1a8b75.x86_64.rpm"} {
+			if !strings.Contains(body, s) {
+				t.Errorf("expected output to contain %q", s)
+			}
+		}
+		assertOrder(t, body, "Critical issue in opcontrol", "Low issue in opcontrol", "High issue in opcore")
+	})
+
+	t.Run("sort", func(t *testing.T) {
+		body := html.UnescapeString(getVulnerabilities(withFixes(), "/vulnerabilities?repo=rpm-stable&sort=component&dir=desc").Body.String())
+		assertOrder(t, body, "High issue in opcore", "Critical issue in opcontrol", "Low issue in opcontrol")
+	})
+
+	t.Run("severity filter", func(t *testing.T) {
+		body := html.UnescapeString(getVulnerabilities(withFixes(), "/vulnerabilities?repo=rpm-stable&severity=Critical").Body.String())
+		if !strings.Contains(body, "Critical issue in opcontrol") || !strings.Contains(body, "<code>golang.org/x/net:0.59.0</code>") {
+			t.Error("expected the critical finding with its versions")
+		}
+		if strings.Contains(body, "High issue in opcore") || strings.Contains(body, "Low issue in opcontrol") {
+			t.Error("findings of other severities must not be listed")
+		}
+		if !strings.Contains(body, "Findings: 3") {
+			t.Error("expected the unfiltered total in the header")
+		}
+
+		w := getVulnerabilities(withFixes(), "/vulnerabilities/export?repo=rpm-stable&severity=critical")
+		records, err := csv.NewReader(w.Body).ReadAll()
+		if err != nil {
+			t.Fatalf("response is not valid CSV: %v", err)
+		}
+		if len(records) != 2 || records[1][6] != "golang.org/x/net:0.59.0" || records[1][7] != "0.60.0" {
+			t.Errorf("expected one filtered CSV row with versions, got %v", records)
+		}
+	})
+
+	t.Run("clean list", func(t *testing.T) {
+		mock := withFixes()
+		mock.xray.Artifacts[1].Issues = nil
+		body := getVulnerabilities(mock, "/vulnerabilities?repo=rpm-stable").Body.String()
+		if !strings.Contains(body, "scanned and clean: 1") || !strings.Contains(body, `<span class="o-clean" title="portal/opcore/opcore-v1.10.25-5314aa81.x86_64.rpm">`) {
+			t.Error("expected opcore to be listed as scanned and clean")
+		}
+		if strings.Contains(body, `title="portal/sso/sso-v1.10.15-cc1a8b75.x86_64.rpm">sso`) {
+			t.Error("a package Xray did not scan must not be listed as clean")
+		}
+	})
+}
